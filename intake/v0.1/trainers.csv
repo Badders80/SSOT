@@ -1,0 +1,3 @@
+trainer_id,trainer_name,stable_name,contact_name,phone,email,website,x_url,instagram_url,facebook_url,profile_origin,profile_status,notes
+TRN-001,Wexford Stables,Wexford Stables,Andrew Scott,+64 27 360 2276,info@wexfordstables.co.nz,https://www.wexfordstables.co.nz,https://x.com/WexfordStables,https://instagram.com/wexford_stables,https://facebook.com/WexfordStables,seed,active,"Loaded from SSOT_Build.xlsx trainer profile."
+TRN-002,Stephen Gray Racing,Copper Belt Lodge,Stephen Gray,+64 21 933 183,stephen@stephengrayracing.com,https://www.stephengrayracing.com,https://x.com/copperbelt_stc,https://instagram.com/stephengrayracing,https://facebook.com/stephengrayracing,seed,active,"Loaded from SSOT_Build.xlsx trainer profile; name normalized to Gray per horse docs."

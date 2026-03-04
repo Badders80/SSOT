@@ -1,0 +1,31 @@
+{
+  "draftId": "HLT-20260303094601-a3924b0f",
+  "createdAt": "2026-03-03T09:46:01.021Z",
+  "source": "mystable-intake-v0.1",
+  "status": "draft",
+  "draft": {
+    "horseId": "HRS-002",
+    "horseName": "Prudentia",
+    "breedingUrl": "https://loveracing.nz/Breeding/427416/Prudentia-NZ-2021.aspx",
+    "trainerId": "TRN-001",
+    "ownerId": "OWN-001",
+    "governingBodyCode": "NZTR",
+    "commercial": {
+      "startDate": "2026-03-01",
+      "endDate": "2027-02-28",
+      "durationMonths": 12,
+      "percentLeased": 10,
+      "tokenCount": 20,
+      "monthlyLeasePriceNzd": 40,
+      "annualLeasePriceNzd": 480,
+      "pricePerOnePercentNzd": 48,
+      "percentPerToken": 0.5,
+      "tokenPriceNzd": 24,
+      "totalIssuanceValueNzd": 480,
+      "investorSharePercent": 80,
+      "ownerSharePercent": 20
+    },
+    "hltNarrative": "test narrative",
+    "notes": "smoke test"
+  }
+}
