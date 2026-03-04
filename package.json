@@ -4,13 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "sync:seed": "node scripts/sync-seed.mjs",
+    "dev": "npm run sync:seed && vite",
+    "build": "npm run sync:seed && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "docx": "^9.6.0",
     "framer-motion": "^12.34.2",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.574.0",
     "react": "^19.2.4",

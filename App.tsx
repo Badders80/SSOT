@@ -407,13 +407,13 @@ const docWebHref = (path: string): string | null => {
   return null;
 };
 
-const EVOLUTION_UPDATES_ROOT = '/home/evo/projects/Evolution_Platform/public/updates';
+const INVESTOR_UPDATES_ROOT_LABEL = '/data/generated/investor_updates';
 
 const slugSegment = (value: string): string =>
   value.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
 
 const horseUpdateFolderPath = (horseName: string, horseId: string): string =>
-  `${EVOLUTION_UPDATES_ROOT}/${slugSegment(horseName)}_${slugSegment(horseId)}`;
+  `${INVESTOR_UPDATES_ROOT_LABEL}/${slugSegment(horseName)}_${slugSegment(horseId)}`;
 
 const appendSourceNote = (base: string, note: string): string => {
   const trimmed = base.trim();
@@ -1705,7 +1705,7 @@ const enrichProfileFromUrls = async (urls: string[]): Promise<{
       if (xProfile) {
         if (xProfile.name) {
           pushStableNameOption({ label: 'Display name', value: xProfile.name, confidence: 'inferred' });
-          if (!stableName || stableNameConfidence === 'low') {
+          if (!stableName) {
             stableName = xProfile.name;
             stableNameConfidence = 'inferred';
           }
@@ -2231,7 +2231,7 @@ const App: React.FC = () => {
         status: 'active',
       });
     }
-    Object.values(governingEdits).forEach((row) => byCode.set(row.governing_body_code, row));
+    Object.values(governingEdits as Record<string, GoverningBodyRecord>).forEach((row) => byCode.set(row.governing_body_code, row));
     return Array.from(byCode.values());
   }, [seed, customGoverningBodies, governingEdits]);
 

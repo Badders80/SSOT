@@ -66,7 +66,8 @@ Bio/notes: ${payload.notes ?? ''}
 Other context: ${payload.otherContext ?? ''}
 Limited context flag: ${payload.limitedContext ? 'true' : 'false'}`;
 
-const EVOLUTION_UPDATES_ROOT = '/home/evo/projects/Evolution_Platform/public/updates';
+const INVESTOR_UPDATES_ROOT = readCentralEnvValue('SSOT_UPDATES_ROOT_ABS')
+  || path.join(process.cwd(), 'data', 'generated', 'investor_updates');
 
 const slugSegment = (value: string): string =>
   value.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
@@ -80,9 +81,27 @@ const readJsonBody = async <T = Record<string, unknown>>(req: any): Promise<T> =
   return JSON.parse(bodyText || '{}') as T;
 };
 
+const isLoopbackAddress = (address: string): boolean => {
+  const normalized = address.replace(/^::ffff:/, '');
+  return normalized === '127.0.0.1' || normalized === '::1';
+};
+
+const requireLocalRequest = (req: any, res: any): boolean => {
+  const remoteAddress = req?.socket?.remoteAddress ?? '';
+  const hostHeader = String(req?.headers?.host ?? '').toLowerCase();
+  const host = hostHeader.split(':')[0];
+  const hostAllowed = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '';
+
+  if (isLoopbackAddress(remoteAddress) && hostAllowed) return true;
+  res.statusCode = 403;
+  res.end('Local access only');
+  return false;
+};
+
 const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: any, res: any) => Promise<void>) => void }) => {
   middlewares.use('/__save_investor_update', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       if (req.method !== 'POST') {
         res.statusCode = 405;
         res.end('Method not allowed');
@@ -110,7 +129,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
       const headlineToken = slugSegment(payload.headline || typeToken);
       const fileName = `${slugSegment(horseName)}-${typeToken}-${headlineToken}-${dateToken}.html`;
       const horseFolder = `${slugSegment(horseName)}_${slugSegment(horseId)}`;
-      const targetDir = path.join(EVOLUTION_UPDATES_ROOT, horseFolder);
+      const targetDir = path.join(INVESTOR_UPDATES_ROOT, horseFolder);
       const filePath = path.join(targetDir, fileName);
       await fs.promises.mkdir(targetDir, { recursive: true });
       await fs.promises.writeFile(filePath, html, 'utf8');
@@ -130,6 +149,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
 
   middlewares.use('/__url_proxy', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       const origin = 'http://localhost';
       const parsed = new URL(req.url ?? '', origin);
       const target = parsed.searchParams.get('url');
@@ -156,6 +176,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
   });
   middlewares.use('/__anthropic_profile', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       if (req.method !== 'POST') {
         res.statusCode = 405;
         res.end('Method not allowed');
@@ -217,6 +238,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
   });
   middlewares.use('/__glm_profile', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       if (req.method !== 'POST') {
         res.statusCode = 405;
         res.end('Method not allowed');
@@ -281,6 +303,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
   });
   middlewares.use('/__groq_profile', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       if (req.method !== 'POST') {
         res.statusCode = 405;
         res.end('Method not allowed');
@@ -344,6 +367,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
   });
   middlewares.use('/__gemini_profile', async (req, res) => {
     try {
+      if (!requireLocalRequest(req, res)) return;
       if (req.method !== 'POST') {
         res.statusCode = 405;
         res.end('Method not allowed');
@@ -418,7 +442,7 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
 export default defineConfig({
   server: {
     port: 3000,
-    host: '0.0.0.0',
+    host: '127.0.0.1',
     proxy: {
       '/__loveracing_proxy': {
         target: 'https://loveracing.nz',
