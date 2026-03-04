@@ -66,7 +66,68 @@ Bio/notes: ${payload.notes ?? ''}
 Other context: ${payload.otherContext ?? ''}
 Limited context flag: ${payload.limitedContext ? 'true' : 'false'}`;
 
+const EVOLUTION_UPDATES_ROOT = '/home/evo/projects/Evolution_Platform/public/updates';
+
+const slugSegment = (value: string): string =>
+  value.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
+
+const readJsonBody = async <T = Record<string, unknown>>(req: any): Promise<T> => {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  const bodyText = Buffer.concat(chunks).toString('utf8');
+  return JSON.parse(bodyText || '{}') as T;
+};
+
 const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: any, res: any) => Promise<void>) => void }) => {
+  middlewares.use('/__save_investor_update', async (req, res) => {
+    try {
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        res.end('Method not allowed');
+        return;
+      }
+      const payload = await readJsonBody<{
+        horseId?: string;
+        horseName?: string;
+        template?: 'standard' | 'quarterly';
+        headline?: string;
+        asOfDate?: string;
+        html?: string;
+      }>(req);
+      const horseId = (payload.horseId || '').trim();
+      const horseName = (payload.horseName || '').trim();
+      const html = (payload.html || '').trim();
+      if (!horseId || !horseName || !html) {
+        res.statusCode = 400;
+        res.setHeader('content-type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'horseId, horseName, and html are required.' }));
+        return;
+      }
+      const dateToken = (payload.asOfDate || new Date().toISOString().slice(0, 10)).replace(/[^0-9]/g, '') || '00000000';
+      const typeToken = payload.template === 'quarterly' ? 'Quarterly' : 'Update';
+      const headlineToken = slugSegment(payload.headline || typeToken);
+      const fileName = `${slugSegment(horseName)}-${typeToken}-${headlineToken}-${dateToken}.html`;
+      const horseFolder = `${slugSegment(horseName)}_${slugSegment(horseId)}`;
+      const targetDir = path.join(EVOLUTION_UPDATES_ROOT, horseFolder);
+      const filePath = path.join(targetDir, fileName);
+      await fs.promises.mkdir(targetDir, { recursive: true });
+      await fs.promises.writeFile(filePath, html, 'utf8');
+      res.statusCode = 200;
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({
+        fileName,
+        filePath,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch (error) {
+      res.statusCode = 500;
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'Save failed' }));
+    }
+  });
+
   middlewares.use('/__url_proxy', async (req, res) => {
     try {
       const origin = 'http://localhost';

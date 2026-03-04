@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Document as DocxDocument, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   Activity,
   BadgeCheck,
@@ -88,6 +91,7 @@ type IntakeRecord = {
 
 type DocumentRecord = {
   document_id: string;
+  lease_id?: string;
   horse_id: string;
   document_type: string;
   document_version: string;
@@ -164,6 +168,7 @@ type HLTRecord = {
   horse_name: string;
   horse_country: string;
   horse_year: string;
+  horse_microchip: string;
   trainer_id: string;
   trainer_name: string;
   stable_name: string;
@@ -205,6 +210,24 @@ type HLTDraft = {
   erc20Identifier: string;
 };
 
+type InvestorUpdateType = 'standard' | 'quarterly';
+
+type InvestorUpdateDraft = {
+  template: InvestorUpdateType;
+  horseId: string;
+  headline: string;
+  summary: string;
+  body: string;
+  asOfDate: string;
+};
+
+type SavedInvestorUpdate = {
+  fileName: string;
+  horseName: string;
+  filePath: string;
+  savedAt: string;
+};
+
 type RouteState = {
   route: RouteKey;
   horseId: string | null;
@@ -218,6 +241,21 @@ type MetricCardProps = {
   icon: React.ReactNode;
   href: string;
 };
+
+type PersistedLocalState = {
+  seed: SeedPayload | null;
+  customHorses: HorseRecord[];
+  customTrainers: TrainerRecord[];
+  customOwners: OwnerRecord[];
+  customGoverningBodies: GoverningBodyRecord[];
+  horseEdits: Record<string, HorseRecord>;
+  trainerEdits: Record<string, TrainerRecord>;
+  ownerEdits: Record<string, OwnerRecord>;
+  governingEdits: Record<string, GoverningBodyRecord>;
+  archivedRecords: ArchivedRecord[];
+};
+
+const LOCAL_STATE_KEY = 'ssot_local_state_v1';
 
 const parseRoute = (hash: string): RouteState => {
   const clean = hash.replace(/^#\/?/, '').trim();
@@ -369,6 +407,78 @@ const docWebHref = (path: string): string | null => {
   return null;
 };
 
+const EVOLUTION_UPDATES_ROOT = '/home/evo/projects/Evolution_Platform/public/updates';
+
+const slugSegment = (value: string): string =>
+  value.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
+
+const horseUpdateFolderPath = (horseName: string, horseId: string): string =>
+  `${EVOLUTION_UPDATES_ROOT}/${slugSegment(horseName)}_${slugSegment(horseId)}`;
+
+const appendSourceNote = (base: string, note: string): string => {
+  const trimmed = base.trim();
+  if (!trimmed) return note;
+  return trimmed.includes(note) ? trimmed : `${trimmed} | ${note}`;
+};
+
+const investorUpdateHtml = (input: {
+  template: InvestorUpdateType;
+  horseId: string;
+  horseName: string;
+  headline: string;
+  summary: string;
+  body: string;
+  asOfDate: string;
+}): string => {
+  const title = `${input.headline || `${input.horseName} Investor Update`} (${input.asOfDate || isoToday()})`;
+  const templateLabel = input.template === 'quarterly' ? 'Quarterly Investor Update' : 'Standard Investor Update';
+  const bodyParagraphs = input.body
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br/>')}</p>`)
+    .join('\n');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Georgia, 'Times New Roman', serif; color: #0f172a; margin: 0; background: #f8fafc; }
+    .page { max-width: 860px; margin: 0 auto; background: #fff; min-height: 100vh; padding: 42px 52px; box-sizing: border-box; }
+    .meta { font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: .08em; }
+    h1 { margin: 10px 0 8px; font-size: 30px; line-height: 1.2; }
+    .summary { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
+    .summary p { margin: 0; font-size: 15px; line-height: 1.6; }
+    .content { margin-top: 20px; font-size: 16px; line-height: 1.75; }
+    .content p { margin: 0 0 14px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="meta">${escapeHtml(templateLabel)} · ${escapeHtml(input.horseName)} (${escapeHtml(input.horseId)}) · ${escapeHtml(input.asOfDate || isoToday())}</div>
+    <h1>${escapeHtml(input.headline || `${input.horseName} Investor Update`)}</h1>
+    <section class="summary"><p>${escapeHtml(input.summary || 'No summary provided.')}</p></section>
+    <section class="content">
+      ${bodyParagraphs || '<p>No body content provided.</p>'}
+    </section>
+  </main>
+</body>
+</html>`;
+};
+
+const triggerBlobDownload = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
+
 const buildHltDocumentHtml = (record: HLTRecord): string => {
   const safeVariations = record.variations.trim() || 'n/a';
   return `<!DOCTYPE html>
@@ -378,7 +488,7 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
   <title>HLT Issuance - ${escapeHtml(record.token_name)}</title>
   <style>
     body {
-      font-family: 'Georgia', 'Times New Roman', serif;
+      font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       font-size: 11pt;
       color: #1a1a2e;
       background: #ffffff;
@@ -419,7 +529,7 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
       text-align: right;
     }
     .doc-title {
-      font-family: 'Georgia', serif;
+      font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       font-size: 15pt;
       font-weight: bold;
       text-align: center;
@@ -440,7 +550,7 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
       line-height: 1.55;
     }
     .item-num {
-      font-family: 'Georgia', serif;
+      font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       font-size: 11pt;
       color: #1a1a2e;
       min-width: 18px;
@@ -448,7 +558,7 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
     }
     .item-content { flex: 1; }
     .item-label, .item-value {
-      font-family: 'Georgia', serif;
+      font-family: 'Manrope', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       font-size: 11pt;
       color: #1a1a2e;
     }
@@ -567,6 +677,13 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
   <div class="item">
     <div class="item-num">3.</div>
     <div class="item-content">
+      <span class="item-label">Horse Microchip Number:&nbsp;&nbsp;</span>
+      <span class="item-value">${escapeHtml(record.horse_microchip || 'n/a')}</span>
+    </div>
+  </div>
+  <div class="item">
+    <div class="item-num">4.</div>
+    <div class="item-content">
       <span class="item-label">Token Issuance Particulars:</span>
       <span style="font-size:10pt;color:#777;">&nbsp;(Priced in NZD to be converted to AED prior to issuance)</span>
       <div class="sub-items">
@@ -586,37 +703,37 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
     </div>
   </div>
   <div class="item">
-    <div class="item-num">4.</div>
-    <div class="item-content">
-      <span class="item-label">Horse(s):-&nbsp;&nbsp;</span>
-      <span class="item-value">${escapeHtml(record.horse_name)} (${escapeHtml(record.horse_country)}) ${escapeHtml(record.horse_year)}</span>
-    </div>
-  </div>
-  <div class="item">
     <div class="item-num">5.</div>
     <div class="item-content">
-      <span class="item-label">Stable / Trainer:-&nbsp;&nbsp;</span>
-      <span class="item-value">${escapeHtml(record.trainer_name)}${record.stable_location ? `, ${escapeHtml(record.stable_location)}` : ''}</span>
+      <span class="item-label">Horse(s):&nbsp;&nbsp;</span>
+      <span class="item-value">${escapeHtml(record.horse_name)} (${escapeHtml(record.horse_country)}) ${escapeHtml(record.horse_year)}</span>
     </div>
   </div>
   <div class="item">
     <div class="item-num">6.</div>
     <div class="item-content">
-      <span class="item-label">Horse Asset Lease/Owner:-&nbsp;&nbsp;</span>
-      <span class="item-value">${escapeHtml(record.owner_name)}</span>
+      <span class="item-label">Stable / Trainer:&nbsp;&nbsp;</span>
+      <span class="item-value">${escapeHtml(record.trainer_name)}${record.stable_location ? `, ${escapeHtml(record.stable_location)}` : ''}</span>
     </div>
   </div>
   <div class="item">
     <div class="item-num">7.</div>
     <div class="item-content">
-      <span class="item-label">Governing Body:-&nbsp;&nbsp;</span>
-      <span class="item-value">${escapeHtml(record.governing_body_name)} (${escapeHtml(record.governing_body_code)})</span>
+      <span class="item-label">Horse Asset Lease/Owner:&nbsp;&nbsp;</span>
+      <span class="item-value">${escapeHtml(record.owner_name)}</span>
     </div>
   </div>
   <div class="item">
     <div class="item-num">8.</div>
     <div class="item-content">
-      <span class="item-label">Product commercial details:-</span>
+      <span class="item-label">Governing Body:&nbsp;&nbsp;</span>
+      <span class="item-value">${escapeHtml(record.governing_body_name)} (${escapeHtml(record.governing_body_code)})</span>
+    </div>
+  </div>
+  <div class="item">
+    <div class="item-num">9.</div>
+    <div class="item-content">
+      <span class="item-label">Product commercial details:</span>
       <div class="sub-items">
         <div class="sub-item">
           <div class="sub-item-label">a.</div>
@@ -635,9 +752,9 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
     </div>
   </div>
   <div class="item">
-    <div class="item-num">9.</div>
+    <div class="item-num">10.</div>
     <div class="item-content">
-      <span class="item-label">Variations:-&nbsp;&nbsp;</span>
+      <span class="item-label">Variations:&nbsp;&nbsp;</span>
       <span class="item-value">${escapeHtml(safeVariations)}</span>
     </div>
   </div>
@@ -654,6 +771,68 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
 </div>
 </body>
 </html>`;
+};
+
+const buildHltDocxBlob = async (record: HLTRecord): Promise<Blob> => {
+  const doc = new DocxDocument({
+    sections: [{
+      children: [
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Horse Lease Token ("HLT") New Issuance Details')] }),
+        new Paragraph(`1. Issuance Submission Date: ${formalDate(record.submission_date)}`),
+        new Paragraph(`2. Token Name: ${record.token_name}`),
+        new Paragraph(`   ERC20 blockchain identifier: ${record.erc20_identifier}`),
+        new Paragraph(`3. Horse Microchip Number: ${record.horse_microchip || 'n/a'}`),
+        new Paragraph('4. Token Issuance Particulars:'),
+        new Paragraph(`   a. Number of Tokens issued: ${record.num_tokens}`),
+        new Paragraph(`   b. Token Price: $${record.token_price_nzd.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+        new Paragraph(`   c. Total Issuance Value: $${record.total_issuance_value.toLocaleString('en-NZ')}`),
+        new Paragraph(`5. Horse(s): ${record.horse_name} (${record.horse_country}) ${record.horse_year}`),
+        new Paragraph(`6. Stable / Trainer: ${record.trainer_name}${record.stable_location ? `, ${record.stable_location}` : ''}`),
+        new Paragraph(`7. Horse Asset Lease/Owner: ${record.owner_name}`),
+        new Paragraph(`8. Governing Body: ${record.governing_body_name} (${record.governing_body_code})`),
+        new Paragraph('9. Product commercial details:'),
+        new Paragraph(`   a. HLT Lease period: ${record.lease_length_months} Months commencing ${humanDate(record.lease_start_date)}`),
+        new Paragraph(`   b. Stakes Split: ${record.owner_stakes_split}/${record.investor_stakes_split} in favour of tokenholders.`),
+        new Paragraph(`10. Variations: ${record.variations?.trim() || 'n/a'}`),
+      ],
+    }],
+  });
+  return Packer.toBlob(doc);
+};
+
+const downloadHltPdf = async (record: HLTRecord, fileName: string) => {
+  const html = buildHltDocumentHtml(record);
+  const sandbox = document.createElement('div');
+  sandbox.style.position = 'fixed';
+  sandbox.style.left = '-20000px';
+  sandbox.style.top = '0';
+  sandbox.style.width = '794px';
+  sandbox.style.background = '#fff';
+  sandbox.innerHTML = html;
+  document.body.appendChild(sandbox);
+  try {
+    const page = (sandbox.querySelector('.page') as HTMLElement | null) ?? sandbox;
+    const canvas = await html2canvas(page, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      windowWidth: 794,
+    });
+
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+    const imgWidth = canvas.width * ratio;
+    const imgHeight = canvas.height * ratio;
+    const x = (pageWidth - imgWidth) / 2;
+    const y = 0;
+
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight, undefined, 'FAST');
+    pdf.save(fileName);
+  } finally {
+    document.body.removeChild(sandbox);
+  }
 };
 
 type ParsedBreedingLink = {
@@ -1009,7 +1188,54 @@ const extractSocialLinks = (html: string): string[] => {
   const absolute = html.match(/https?:\/\/(?:www\.)?(?:x\.com|twitter\.com|linkedin\.com|facebook\.com|instagram\.com)\/[^"'\s<)]+/gi) ?? [];
   const hrefs = Array.from(html.matchAll(/href=["']([^"']+)["']/gi)).map((match) => match[1]);
   const hrefSocials = hrefs.filter((value) => socialDomain.test(value));
-  return Array.from(new Set([...absolute, ...hrefSocials].map((item) => item.replace(/&amp;/g, '&'))));
+  const normalized = [...absolute, ...hrefSocials]
+    .map((item) => item.replace(/&amp;/g, '&'))
+    .map((item) => normalizeSocialLink(item))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
+const isLikelyProfileSocialUrl = (value: string): boolean => {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+    const segments = parsed.pathname.split('/').filter(Boolean).map((seg) => seg.toLowerCase());
+    if (!segments.length) return false;
+
+    const blocked = new Set([
+      'home', 'explore', 'i', 'messages', 'compose', 'privacy', 'tos', 'settings',
+      'search', 'intent', 'share', 'hashtag', 'login', 'signup', 'about', 'help',
+      'support', 'legal', 'business', 'articles', 'using-x', 'x-supported-browsers',
+    ]);
+
+    if (host === 'x.com' || host === 'twitter.com') {
+      if (segments.length !== 1) return false;
+      if (blocked.has(segments[0])) return false;
+      return /^@?[a-z0-9_]{1,30}$/i.test(segments[0]);
+    }
+
+    if (host === 'instagram.com') {
+      if (segments.length !== 1) return false;
+      if (blocked.has(segments[0])) return false;
+      return /^[a-z0-9._]{1,30}$/i.test(segments[0]);
+    }
+
+    if (host === 'facebook.com') {
+      if (segments.length < 1 || segments.length > 2) return false;
+      if (blocked.has(segments[0])) return false;
+      return true;
+    }
+
+    if (host === 'linkedin.com') {
+      if (!['in', 'company', 'school'].includes(segments[0])) return false;
+      if (segments.length < 2) return false;
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 };
 
 const normalizeSocialLink = (value: string): string => {
@@ -1018,7 +1244,10 @@ const normalizeSocialLink = (value: string): string => {
   try {
     const parsed = new URL(trimmed);
     if (!/^https?:$/i.test(parsed.protocol)) return '';
-    return parsed.toString();
+    if (!isLikelyProfileSocialUrl(parsed.toString())) return '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
   } catch {
     return '';
   }
@@ -1044,6 +1273,14 @@ const mergeSocialLinks = (base: string[], fields: { facebook?: string; x?: strin
     if (normalized) out.add(normalized);
   });
   return Array.from(out);
+};
+
+const getDisplaySocialLinks = (links?: string[]): string[] => {
+  if (!links?.length) return [];
+  const cleaned = links
+    .map((link) => normalizeSocialLink(link))
+    .filter(Boolean);
+  return Array.from(new Set(cleaned));
 };
 
 const inferNameFromTitle = (raw: string): string =>
@@ -1755,6 +1992,13 @@ const App: React.FC = () => {
   const [expandedTrainerId, setExpandedTrainerId] = useState<string | null>(null);
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null);
   const [newHorseLink, setNewHorseLink] = useState('');
+  const [manualHorseOverride, setManualHorseOverride] = useState(false);
+  const [manualHorseInput, setManualHorseInput] = useState({
+    horseName: '',
+    countryCode: 'NZ',
+    foalingYear: '',
+    microchip: '',
+  });
   const [newHorseImage, setNewHorseImage] = useState<File | null>(null);
   const [newHorseImageName, setNewHorseImageName] = useState('');
   const [addHorseError, setAddHorseError] = useState<string | null>(null);
@@ -1825,6 +2069,20 @@ const App: React.FC = () => {
     status: 'active',
   });
   const [addGoverningError, setAddGoverningError] = useState<string | null>(null);
+  const [showInvestorUpdateBuilder, setShowInvestorUpdateBuilder] = useState(false);
+  const [isSavingInvestorUpdate, setIsSavingInvestorUpdate] = useState(false);
+  const [investorUpdateError, setInvestorUpdateError] = useState<string | null>(null);
+  const [investorUpdateNotice, setInvestorUpdateNotice] = useState<string | null>(null);
+  const [savedInvestorUpdates, setSavedInvestorUpdates] = useState<SavedInvestorUpdate[]>([]);
+  const [downloadFormat, setDownloadFormat] = useState<'html' | 'docx' | 'pdf'>('html');
+  const [investorUpdateDraft, setInvestorUpdateDraft] = useState<InvestorUpdateDraft>({
+    template: 'standard',
+    horseId: 'HRS-001',
+    headline: 'Investor Update',
+    summary: '',
+    body: '',
+    asOfDate: isoToday(),
+  });
 
   useEffect(() => {
     const onHashChange = () => setRouteState(parseRoute(window.location.hash));
@@ -1834,6 +2092,28 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const load = async () => {
+      try {
+        const raw = window.localStorage.getItem(LOCAL_STATE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as PersistedLocalState;
+          if (parsed && typeof parsed === 'object') {
+            setSeed(parsed.seed ?? null);
+            setCustomHorses(parsed.customHorses ?? []);
+            setCustomTrainers(parsed.customTrainers ?? []);
+            setCustomOwners(parsed.customOwners ?? []);
+            setCustomGoverningBodies(parsed.customGoverningBodies ?? []);
+            setHorseEdits(parsed.horseEdits ?? {});
+            setTrainerEdits(parsed.trainerEdits ?? {});
+            setOwnerEdits(parsed.ownerEdits ?? {});
+            setGoverningEdits(parsed.governingEdits ?? {});
+            setArchivedRecords(parsed.archivedRecords ?? []);
+            return;
+          }
+        }
+      } catch {
+        window.localStorage.removeItem(LOCAL_STATE_KEY);
+      }
+
       try {
         const res = await fetch('/intake/v0.1/seed.json', { cache: 'no-store' });
         if (!res.ok) {
@@ -1849,15 +2129,59 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!seed) return;
+    const payload: PersistedLocalState = {
+      seed,
+      customHorses,
+      customTrainers,
+      customOwners,
+      customGoverningBodies,
+      horseEdits,
+      trainerEdits,
+      ownerEdits,
+      governingEdits,
+      archivedRecords,
+    };
+    try {
+      window.localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage write errors (quota/private mode)
+    }
+  }, [
+    seed,
+    customHorses,
+    customTrainers,
+    customOwners,
+    customGoverningBodies,
+    horseEdits,
+    trainerEdits,
+    ownerEdits,
+    governingEdits,
+    archivedRecords,
+  ]);
+
+  useEffect(() => {
     if (!hltNotice) return;
     const timer = window.setTimeout(() => setHltNotice(null), 5000);
     return () => window.clearTimeout(timer);
   }, [hltNotice]);
 
+  useEffect(() => {
+    if (!investorUpdateNotice) return;
+    const timer = window.setTimeout(() => setInvestorUpdateNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [investorUpdateNotice]);
+
   const allHorses = useMemo(
     () => ([...(seed?.horses ?? []), ...customHorses]).map((horse) => horseEdits[horse.horse_id] ?? horse),
     [seed, customHorses, horseEdits],
   );
+  useEffect(() => {
+    if (!allHorses.length) return;
+    if (allHorses.some((horse) => horse.horse_id === investorUpdateDraft.horseId)) return;
+    setInvestorUpdateDraft((prev) => ({ ...prev, horseId: allHorses[0].horse_id }));
+  }, [allHorses, investorUpdateDraft.horseId]);
+
   const allTrainers = useMemo(
     () => ([...(seed?.trainers ?? []), ...customTrainers]).map((trainer) => trainerEdits[trainer.trainer_id] ?? trainer),
     [seed, customTrainers, trainerEdits],
@@ -2016,6 +2340,7 @@ const App: React.FC = () => {
       horse_name: hltHorse.horse_name,
       horse_country: hltHorse.country_code,
       horse_year: extractFoalingYear(hltHorse.foaling_date),
+      horse_microchip: hltHorse.microchip_number,
       trainer_id: hltTrainer.trainer_id,
       trainer_name: hltTrainer.trainer_name,
       stable_name: hltTrainer.stable_name,
@@ -2226,47 +2551,74 @@ const App: React.FC = () => {
     setAddHorseError(null);
 
     const trimmedLink = newHorseLink.trim();
-    const parsedLink = parseBreedingLink(trimmedLink);
-    if (!parsedLink) {
-      setAddHorseError('Please provide a valid Loveracing breeding link.');
-      return;
+    const manualName = manualHorseInput.horseName.trim();
+    const manualCountry = (manualHorseInput.countryCode.trim() || 'NZ').toUpperCase();
+    const manualFoalingYear = manualHorseInput.foalingYear.trim();
+    const parsedLink = manualHorseOverride ? null : parseBreedingLink(trimmedLink);
+
+    if (!manualHorseOverride) {
+      if (!parsedLink) {
+        setAddHorseError('Please provide a valid Loveracing breeding link or use Manual Override.');
+        return;
+      }
+    } else {
+      if (!manualName) {
+        setAddHorseError('Manual override requires at least a horse name.');
+        return;
+      }
+      if (manualFoalingYear && !/^\d{4}$/.test(manualFoalingYear)) {
+        setAddHorseError('Foaling year must be YYYY.');
+        return;
+      }
     }
 
-    const existingHorse = allHorses.find((horse) => horse.breeding_url === trimmedLink);
-    if (existingHorse) {
-      setAddHorseError('That breeding link is already mapped to an existing horse profile.');
-      return;
+    if (!manualHorseOverride) {
+      const existingHorse = allHorses.find((horse) => horse.breeding_url === trimmedLink);
+      if (existingHorse) {
+        setAddHorseError('That breeding link is already mapped to an existing horse profile.');
+        return;
+      }
     }
 
     setIsAddingHorse(true);
     try {
-      const matchedSeedHorse = (seed?.horses ?? []).find((horse) => {
-        const sourceMatch = parseBreedingLink(horse.breeding_url);
-        return sourceMatch?.sourceHorseId === parsedLink.sourceHorseId;
-      });
+      const matchedSeedHorse = parsedLink
+        ? (seed?.horses ?? []).find((horse) => {
+          const sourceMatch = parseBreedingLink(horse.breeding_url);
+          return sourceMatch?.sourceHorseId === parsedLink.sourceHorseId;
+        })
+        : null;
 
       let scrapedDetails: ScrapedHorseDetails | null = null;
       let loveracingHtml: string | null = null;
-      try {
-        const url = new URL(trimmedLink);
-        const proxyPath = `/__loveracing_proxy${url.pathname}${url.search}`;
-        const response = await fetch(proxyPath, { cache: 'no-store' });
-        if (response.ok) {
-          loveracingHtml = await response.text();
-          scrapedDetails = scrapeHorseDetailsFromHtml(loveracingHtml, parsedLink);
+      if (parsedLink) {
+        try {
+          const url = new URL(trimmedLink);
+          const proxyPath = `/__loveracing_proxy${url.pathname}${url.search}`;
+          const response = await fetch(proxyPath, { cache: 'no-store' });
+          if (response.ok) {
+            loveracingHtml = await response.text();
+            scrapedDetails = scrapeHorseDetailsFromHtml(loveracingHtml, parsedLink);
+          }
+        } catch {
+          scrapedDetails = null;
         }
-      } catch {
-        scrapedDetails = null;
       }
 
       const generatedHorseId = nextHorseId(allHorses);
       const trainerByDesign = matchedSeedHorse?.trainer_id ?? (allTrainers[0]?.trainer_id ?? '');
       const ownerByDesign = matchedSeedHorse?.owner_id ?? (allOwners[0]?.owner_id ?? '');
       const governingByDesign = matchedSeedHorse?.governing_body_code ?? (seed?.governingBodies ?? [])[0]?.governing_body_code ?? 'NZTR';
-      const foalingDate = parsedLink.foalingYear ? `${parsedLink.foalingYear}-01-01` : 'unknown';
-      const nztrLifeNumber = `NZ${parsedLink.sourceHorseId.padStart(8, '0')}`;
-      const performanceUrl = `https://loveracing.nz/Common/SystemTemplates/Modal/EntryDetail.aspx?DisplayContext=Modal&HorseID=${parsedLink.sourceHorseId}`;
-      const horseNameForImage = scrapedDetails?.horseName ?? parsedLink.horseName;
+      const foalingDate = parsedLink?.foalingYear
+        ? `${parsedLink.foalingYear}-01-01`
+        : manualFoalingYear
+          ? `${manualFoalingYear}-01-01`
+          : 'unknown';
+      const nztrLifeNumber = parsedLink ? `NZ${parsedLink.sourceHorseId.padStart(8, '0')}` : `MANUAL-${generatedHorseId}`;
+      const performanceUrl = parsedLink
+        ? `https://loveracing.nz/Common/SystemTemplates/Modal/EntryDetail.aspx?DisplayContext=Modal&HorseID=${parsedLink.sourceHorseId}`
+        : '#';
+      const horseNameForImage = scrapedDetails?.horseName ?? parsedLink?.horseName ?? manualName;
       const loveracingImage = loveracingHtml ? parseHorseImageFromHtml(loveracingHtml, horseNameForImage) : null;
       const ownerWebsite = ownerById.get(ownerByDesign)?.website ?? '';
       const ownerWebsiteImage = loveracingImage ? '' : await fetchWebsiteOgImage(ownerWebsite);
@@ -2295,25 +2647,27 @@ const App: React.FC = () => {
           }
         : {
             horse_id: generatedHorseId,
-            horse_name: scrapedDetails?.horseName ?? parsedLink.horseName,
-            country_code: scrapedDetails?.countryCode ?? parsedLink.countryCode,
+            horse_name: scrapedDetails?.horseName ?? parsedLink?.horseName ?? manualName,
+            country_code: scrapedDetails?.countryCode ?? parsedLink?.countryCode ?? manualCountry,
             foaling_date: scrapedDetails?.foalingDate ?? foalingDate,
             sex: scrapedDetails?.sex ?? 'Unknown',
             colour: scrapedDetails?.colour ?? 'Unknown',
             sire: scrapedDetails?.sire ?? 'Unknown',
             dam: scrapedDetails?.dam ?? 'Unknown',
             nztr_life_number: scrapedDetails?.nztrLifeNumber ?? nztrLifeNumber,
-            microchip_number: scrapedDetails?.microchipNumber ?? 'Unknown',
+            microchip_number: scrapedDetails?.microchipNumber ?? (manualHorseInput.microchip.trim() || 'Unknown'),
             trainer_id: trainerByDesign,
             owner_id: ownerByDesign,
             governing_body_code: governingByDesign,
-            breeding_url: trimmedLink,
+            breeding_url: trimmedLink || `manual://${generatedHorseId}`,
             performance_profile_url: scrapedDetails?.performanceProfileUrl ?? performanceUrl,
             horse_status: 'active',
-            identity_status: scrapedDetails ? 'verified' : 'pending',
-            source_primary: 'loveracing + image resolution',
+            identity_status: scrapedDetails ? 'verified' : (manualHorseOverride ? 'manual' : 'pending'),
+            source_primary: manualHorseOverride ? 'manual override' : 'loveracing + image resolution',
             source_last_verified_at: new Date().toISOString().slice(0, 10),
-            source_notes: `Created from Add Horse workflow. Trainer=${trainerByDesign} Owner=${ownerByDesign} GoverningBody=${governingByDesign}.${scrapedDetails ? ' Horse details scraped from Loveracing.' : ' Horse details fallback from URL only.'}`,
+            source_notes: manualHorseOverride
+              ? `Created from manual override. Trainer=${trainerByDesign} Owner=${ownerByDesign} GoverningBody=${governingByDesign}.`
+              : `Created from Add Horse workflow. Trainer=${trainerByDesign} Owner=${ownerByDesign} GoverningBody=${governingByDesign}.${scrapedDetails ? ' Horse details scraped from Loveracing.' : ' Horse details fallback from URL only.'}`,
           };
       const draft: HorseDraftProfile = {
         horseId: generatedHorseId,
@@ -2342,6 +2696,8 @@ const App: React.FC = () => {
       setShowHorseReviewModal(true);
       setShowAddHorseForm(false);
       setNewHorseLink('');
+      setManualHorseOverride(false);
+      setManualHorseInput({ horseName: '', countryCode: 'NZ', foalingYear: '', microchip: '' });
       setNewHorseImage(null);
       setNewHorseImageName('');
     } finally {
@@ -2491,6 +2847,10 @@ const App: React.FC = () => {
 
   const saveHorseProfile = () => {
     if (!horseDraft) return;
+    const targetHorsePath = horseUpdateFolderPath(
+      horseDraft.horseName.value.trim() || horseDraft.horseId,
+      horseDraft.horseId,
+    );
     const record: HorseRecord = {
       horse_id: horseDraft.horseId,
       horse_name: horseDraft.horseName.value.trim() || `Horse ${horseDraft.horseId}`,
@@ -2511,7 +2871,7 @@ const App: React.FC = () => {
       identity_status: horseDraft.identityStatus,
       source_primary: 'loveracing + image resolution',
       source_last_verified_at: new Date().toISOString().slice(0, 10),
-      source_notes: horseDraft.sourceNotes,
+      source_notes: appendSourceNote(horseDraft.sourceNotes, `asset_path:${targetHorsePath}`),
     };
     setHorseImageOverrides((prev) => ({ ...prev, [horseDraft.horseId]: horseDraft.imageUrl || '/horse-images/silhouette.svg' }));
     setCustomHorses((prev) => [...prev, record]);
@@ -2694,6 +3054,75 @@ const App: React.FC = () => {
     setHltDraft((prev) => ({ ...prev, [field]: value }));
   };
 
+  const hltRecordFromDoc = (doc: DocumentRecord): HLTRecord | null => {
+    if (!seed) return null;
+    if (doc.document_type.toLowerCase() !== 'hlt issuance termsheet') return null;
+    const horse = horseById.get(doc.horse_id);
+    if (!horse) return null;
+    const lease = doc.lease_id
+      ? seed.leases.find((row) => row.lease_id === doc.lease_id)
+      : seed.leases.find((row) => row.horse_id === doc.horse_id && row.notes.includes('HLT'));
+    if (!lease) return null;
+    const trainer = trainerById.get(horse.trainer_id);
+    const owner = ownerById.get(horse.owner_id);
+    const governing = governingBodyByCode.get(horse.governing_body_code);
+    const tokenMatch = lease.notes.match(/^(HLT\s-\s.*)\s\(/);
+    const ercMatch = lease.notes.match(/\(([A-Z0-9]+)\)$/);
+    const fallbackTokenName = lease.notes.split('(')[0].trim() || `HLT - ${horse.horse_name}`;
+    return {
+      lease_id: lease.lease_id,
+      token_name: tokenMatch?.[1] ?? fallbackTokenName,
+      erc20_identifier: ercMatch?.[1] ?? 'UNKNOWN',
+      submission_date: doc.document_date || lease.created_at,
+      horse_id: horse.horse_id,
+      horse_name: horse.horse_name,
+      horse_country: horse.country_code,
+      horse_year: extractFoalingYear(horse.foaling_date),
+      horse_microchip: horse.microchip_number,
+      trainer_id: trainer?.trainer_id ?? '',
+      trainer_name: trainer?.trainer_name ?? 'Unknown',
+      stable_name: trainer?.stable_name ?? 'Unknown',
+      stable_location: trainer?.notes ?? '',
+      owner_id: owner?.owner_id ?? '',
+      owner_name: owner?.owner_name ?? 'Unknown',
+      governing_body_code: governing?.governing_body_code ?? horse.governing_body_code,
+      governing_body_name: governing?.governing_body_name ?? 'Unknown',
+      lease_start_date: lease.start_date,
+      lease_length_months: Number(lease.duration_months || 0),
+      lease_end_date: lease.end_date,
+      percentage_leased: Number(lease.percent_leased || 0),
+      owner_stakes_split: Number(lease.owner_share_percent || 0),
+      investor_stakes_split: Number(lease.investor_share_percent || 0),
+      num_tokens: Number(lease.token_count || 0),
+      token_price_nzd: Number(lease.token_price_nzd || 0),
+      percentage_price: Number(lease.price_per_one_percent_nzd || 0),
+      total_issuance_value: Number(lease.total_issuance_value_nzd || 0),
+      variations: 'n/a',
+      status: (lease.lease_status.toLowerCase() as HLTRecord['status']) || 'proposed',
+      document_filename: doc.source_reference,
+    };
+  };
+
+  const downloadHorseDocument = async (doc: DocumentRecord, format: 'html' | 'docx' | 'pdf') => {
+    const hltRecord = hltRecordFromDoc(doc);
+    if (!hltRecord) {
+      setHltNotice(`Download not available for ${doc.document_id}.`);
+      return;
+    }
+    const baseName = (doc.source_reference || `HLT_${doc.document_id}`).replace(/\.[^.]+$/, '');
+    if (format === 'html') {
+      const html = buildHltDocumentHtml(hltRecord);
+      triggerBlobDownload(new Blob([html], { type: 'text/html;charset=utf-8' }), `${baseName}.html`);
+      return;
+    }
+    if (format === 'docx') {
+      const blob = await buildHltDocxBlob(hltRecord);
+      triggerBlobDownload(blob, `${baseName}.docx`);
+      return;
+    }
+    await downloadHltPdf(hltRecord, `${baseName}.pdf`);
+  };
+
   const generateAndSaveHlt = () => {
     if (!seed || !hltPreviewRecord) {
       setHltError('HLT preview data is incomplete.');
@@ -2707,7 +3136,8 @@ const App: React.FC = () => {
 
     const tokenSuffix = hltPreviewRecord.token_name.match(/([A-Z]{2}\d{2})$/)?.[1] ?? `${hltPreviewRecord.horse_country}01`;
     const filename = `HLT_Issuance_${hltPreviewRecord.horse_name.replace(/[^A-Za-z0-9]/g, '')}_${tokenSuffix}_${hltPreviewRecord.submission_date}.html`;
-    const horseFolder = `Horse_${hltPreviewRecord.horse_name.replace(/[^A-Za-z0-9]/g, '')}`;
+    const targetHorsePath = horseUpdateFolderPath(hltPreviewRecord.horse_name, hltPreviewRecord.horse_id);
+    const targetHltPath = `${targetHorsePath}/hlt/${filename}`;
     const finalRecord: HLTRecord = { ...hltPreviewRecord, document_filename: filename };
     const html = buildHltDocumentHtml(finalRecord);
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -2749,9 +3179,9 @@ const App: React.FC = () => {
       document_version: 'v1',
       document_date: finalRecord.submission_date,
       source_reference: finalRecord.document_filename,
-      file_path: `/horses/${horseFolder}/${finalRecord.document_filename}`,
+      file_path: targetHltPath,
       is_current: 'true',
-      notes: 'Generated',
+      notes: `Generated | target_path:${targetHltPath}`,
     };
 
     setSeed((prev) => {
@@ -2766,7 +3196,136 @@ const App: React.FC = () => {
     setLeaseStatusFilter('proposed');
     setLeaseHorseFilter('all');
     closeHltWizard();
-    setHltNotice(`HLT ${finalRecord.token_name} created successfully. Document downloaded.`);
+    setHltNotice(`HLT ${finalRecord.token_name} created successfully. Document downloaded. Target path: ${targetHltPath}`);
+  };
+
+  const openInvestorUpdateBuilder = (template: InvestorUpdateType) => {
+    const preferredHorseId = allHorses[0]?.horse_id ?? '';
+    const preferredHorseName = allHorses[0]?.horse_name ?? 'Horse';
+    setInvestorUpdateDraft({
+      template,
+      horseId: preferredHorseId,
+      headline: template === 'quarterly' ? `${preferredHorseName} Quarterly Investor Update` : `${preferredHorseName} Investor Update`,
+      summary: '',
+      body: '',
+      asOfDate: isoToday(),
+    });
+    setDownloadFormat('html');
+    setInvestorUpdateError(null);
+    setInvestorUpdateNotice(null);
+    setShowInvestorUpdateBuilder(true);
+  };
+
+  const buildInvestorDraftPayload = () => {
+    const horse = allHorses.find((row) => row.horse_id === investorUpdateDraft.horseId);
+    if (!horse) {
+      throw new Error('Select a valid horse before saving or downloading.');
+    }
+    return {
+      horseId: horse.horse_id,
+      horseName: horse.horse_name,
+      template: investorUpdateDraft.template,
+      headline: investorUpdateDraft.headline.trim(),
+      summary: investorUpdateDraft.summary.trim(),
+      body: investorUpdateDraft.body.trim(),
+      asOfDate: investorUpdateDraft.asOfDate || isoToday(),
+    };
+  };
+
+  const saveInvestorUpdateLocally = async () => {
+    try {
+      const payload = buildInvestorDraftPayload();
+      if (!payload.headline || !payload.body) {
+        setInvestorUpdateError('Headline and body are required to save locally.');
+        return;
+      }
+      setIsSavingInvestorUpdate(true);
+      setInvestorUpdateError(null);
+      const html = investorUpdateHtml(payload);
+      const response = await fetch('/__save_investor_update', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...payload, html }),
+      });
+      const data = await response.json() as { fileName?: string; filePath?: string; savedAt?: string; error?: string };
+      if (!response.ok || !data.fileName || !data.filePath) {
+        throw new Error(data.error || `Save failed (${response.status})`);
+      }
+      setSavedInvestorUpdates((prev) => [
+        {
+          fileName: data.fileName as string,
+          filePath: data.filePath as string,
+          horseName: payload.horseName,
+          savedAt: data.savedAt || isoToday(),
+        },
+        ...prev,
+      ].slice(0, 8));
+      setInvestorUpdateNotice(`Saved locally: ${data.filePath}`);
+    } catch (err) {
+      setInvestorUpdateError(err instanceof Error ? err.message : 'Failed to save locally.');
+    } finally {
+      setIsSavingInvestorUpdate(false);
+    }
+  };
+
+  const downloadInvestorUpdate = async () => {
+    try {
+      const payload = buildInvestorDraftPayload();
+      if (!payload.headline || !payload.body) {
+        setInvestorUpdateError('Headline and body are required to download.');
+        return;
+      }
+      setInvestorUpdateError(null);
+      const baseFileName = `${slugSegment(payload.horseName)}-${payload.template === 'quarterly' ? 'Quarterly' : 'Update'}-${payload.asOfDate.replaceAll('-', '')}`;
+      if (downloadFormat === 'html') {
+        const htmlBlob = new Blob([investorUpdateHtml(payload)], { type: 'text/html;charset=utf-8' });
+        triggerBlobDownload(htmlBlob, `${baseFileName}.html`);
+        return;
+      }
+      if (downloadFormat === 'docx') {
+        const bodyBlocks = payload.body.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+        const doc = new DocxDocument({
+          sections: [{
+            children: [
+              new Paragraph({ text: payload.headline, heading: HeadingLevel.HEADING_1 }),
+              new Paragraph({ children: [new TextRun({ text: `${payload.horseName} (${payload.horseId}) · ${payload.asOfDate}`, bold: true })] }),
+              new Paragraph({ text: payload.summary || 'No summary provided.' }),
+              ...bodyBlocks.map((block) => new Paragraph({ text: block })),
+            ],
+          }],
+        });
+        const blob = await Packer.toBlob(doc);
+        triggerBlobDownload(blob, `${baseFileName}.docx`);
+        return;
+      }
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const margin = 48;
+      const width = pdf.internal.pageSize.getWidth() - (margin * 2);
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let y = 58;
+      const writeWrapped = (text: string, size: number) => {
+        pdf.setFontSize(size);
+        const lines = pdf.splitTextToSize(text, width) as string[];
+        for (const line of lines) {
+          if (y > pageHeight - 52) {
+            pdf.addPage();
+            y = 58;
+          }
+          pdf.text(line, margin, y);
+          y += size + 6;
+        }
+      };
+      writeWrapped(payload.headline, 18);
+      y += 4;
+      writeWrapped(`${payload.horseName} (${payload.horseId}) · ${payload.asOfDate}`, 11);
+      y += 8;
+      writeWrapped(payload.summary || 'No summary provided.', 12);
+      y += 8;
+      writeWrapped(payload.body, 12);
+      pdf.save(`${baseFileName}.pdf`);
+    } catch (err) {
+      setInvestorUpdateError(err instanceof Error ? err.message : 'Download failed.');
+    }
   };
 
   const route = routeState.route;
@@ -2826,11 +3385,15 @@ const App: React.FC = () => {
     },
   ];
 
-  const contentStudioRecentHtmlUpdates = [
-    { fileName: 'First-Gear-Update-02Jan2026.html', horseName: firstGearName },
-    { fileName: 'First-Gear-Update-31Dec2025.html', horseName: firstGearName },
-    { fileName: 'First-Gear-Update-22Dec2025.html', horseName: firstGearName },
-  ];
+  const contentStudioRecentHtmlUpdates = useMemo(
+    () => [
+      ...savedInvestorUpdates.map((item) => ({ fileName: item.fileName, horseName: `${item.horseName} (local save)` })),
+      { fileName: 'First-Gear-Update-02Jan2026.html', horseName: firstGearName },
+      { fileName: 'First-Gear-Update-31Dec2025.html', horseName: firstGearName },
+      { fileName: 'First-Gear-Update-22Dec2025.html', horseName: firstGearName },
+    ],
+    [savedInvestorUpdates, firstGearName],
+  );
 
   const contentStudioPrudentiaVideos = [
     { fileName: 'Horse_Prudentia_27Feb2026.mp4', horseName: prudentiaName },
@@ -2911,13 +3474,11 @@ const App: React.FC = () => {
             ) : null}
 
             {route === 'dashboard' ? (
-              <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Active Horses" value={String(allHorses.length)} helper="Open horse registry" progress={100} icon={<Landmark size={16} />} href="#/horses" />
                 <MetricCard label="Trainers/Stables" value={String(allTrainers.length)} helper="Open trainer register" progress={100} icon={<BadgeCheck size={16} />} href="#/trainers" />
                 <MetricCard label="Owners" value={String(allOwners.length)} helper="Open owner register" progress={100} icon={<BriefcaseBusiness size={16} />} href="#/owners" />
                 <MetricCard label="Active Leases" value={String(seed?.leases.length ?? 0)} helper="Open lease register" progress={100} icon={<Link2 size={16} />} href="#/leases" />
-                <MetricCard label="Issued Lease Value" value={`NZD ${stats.issuedIssuance.toLocaleString()}`} helper="Issued only (active/completed)" progress={stats.totalIssuance ? (stats.issuedIssuance / stats.totalIssuance) * 100 : 100} icon={<CircleDollarSign size={16} />} href="#/leases" />
-                <MetricCard label="Potential Lease Value" value={`NZD ${stats.potentialIssuance.toLocaleString()}`} helper="Issued + proposed" progress={100} icon={<CircleDollarSign size={16} />} href="#/leases" />
               </section>
             ) : null}
 
@@ -3038,17 +3599,71 @@ const App: React.FC = () => {
                     <form onSubmit={handleAddHorse} className="surface-card rounded-xl border border-blue-100 p-4">
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Add New Horse Profile</h3>
                       <div className="mt-3 space-y-3">
+                        <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={manualHorseOverride}
+                            onChange={(event) => setManualHorseOverride(event.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Manual override (create without Loveracing URL)
+                        </label>
                         <label className="block text-sm">
                           <span className="mb-1 block font-medium text-slate-700">Loveracing Breeding Link</span>
                           <input
-                            type="url"
+                            type={manualHorseOverride ? 'text' : 'url'}
                             value={newHorseLink}
                             onChange={(event) => setNewHorseLink(event.target.value)}
-                            placeholder="https://loveracing.nz/Breeding/427416/Prudentia-NZ-2021.aspx"
-                            required
+                            placeholder={manualHorseOverride ? 'Optional reference note' : 'https://loveracing.nz/Breeding/427416/Prudentia-NZ-2021.aspx'}
+                            required={!manualHorseOverride}
                             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                           />
                         </label>
+                        {manualHorseOverride ? (
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <label className="block text-sm md:col-span-2">
+                              <span className="mb-1 block font-medium text-slate-700">Horse Name</span>
+                              <input
+                                type="text"
+                                value={manualHorseInput.horseName}
+                                onChange={(event) => setManualHorseInput((prev) => ({ ...prev, horseName: event.target.value }))}
+                                placeholder="Turn Me Loose x Yearn"
+                                required={manualHorseOverride}
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                              />
+                            </label>
+                            <label className="block text-sm">
+                              <span className="mb-1 block font-medium text-slate-700">Country Code</span>
+                              <input
+                                type="text"
+                                value={manualHorseInput.countryCode}
+                                onChange={(event) => setManualHorseInput((prev) => ({ ...prev, countryCode: event.target.value.toUpperCase() }))}
+                                placeholder="NZ"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                              />
+                            </label>
+                            <label className="block text-sm">
+                              <span className="mb-1 block font-medium text-slate-700">Foaling Year</span>
+                              <input
+                                type="text"
+                                value={manualHorseInput.foalingYear}
+                                onChange={(event) => setManualHorseInput((prev) => ({ ...prev, foalingYear: event.target.value }))}
+                                placeholder="2023"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                              />
+                            </label>
+                            <label className="block text-sm md:col-span-2">
+                              <span className="mb-1 block font-medium text-slate-700">Microchip Number (optional)</span>
+                              <input
+                                type="text"
+                                value={manualHorseInput.microchip}
+                                onChange={(event) => setManualHorseInput((prev) => ({ ...prev, microchip: event.target.value }))}
+                                placeholder="985125000126462"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                              />
+                            </label>
+                          </div>
+                        ) : null}
                         <label className="block text-sm">
                           <span className="mb-1 block font-medium text-slate-700">Horse Image (optional)</span>
                           <input
@@ -3197,6 +3812,7 @@ const App: React.FC = () => {
                                 <th className="px-3 py-2 font-semibold">Date</th>
                                 <th className="px-3 py-2 font-semibold">Reference</th>
                                 <th className="px-3 py-2 font-semibold">Status</th>
+                                <th className="px-3 py-2 font-semibold">Download</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3221,6 +3837,13 @@ const App: React.FC = () => {
                                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${doc.notes?.toLowerCase() === 'generated' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
                                       {doc.notes || 'Current'}
                                     </span>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'html')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">HTML</button>
+                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'docx')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">DOCX</button>
+                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'pdf')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">PDF</button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -3311,7 +3934,18 @@ const App: React.FC = () => {
                                 <p><span className="font-semibold text-slate-900">Phone:</span> {trainer.phone}</p>
                                 <p><span className="font-semibold text-slate-900">Email:</span> {trainer.email}</p>
                                 <p><span className="font-semibold text-slate-900">Website:</span> <a href={trainer.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{trainer.website}</a></p>
-                                {trainer.social_links?.length ? <p><span className="font-semibold text-slate-900">Social:</span> {trainer.social_links.join(', ')}</p> : null}
+                                {getDisplaySocialLinks(trainer.social_links).length ? (
+                                  <div>
+                                    <p className="font-semibold text-slate-900">Social:</p>
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                      {getDisplaySocialLinks(trainer.social_links).map((link) => (
+                                        <a key={link} href={link} target="_blank" rel="noreferrer" className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-blue-700 hover:underline">
+                                          {new URL(link).hostname.replace(/^www\./, '')}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             )}
                           </div>
@@ -3421,7 +4055,18 @@ const App: React.FC = () => {
                                 <p><span className="font-semibold text-slate-900">Phone:</span> {owner.phone}</p>
                                 <p><span className="font-semibold text-slate-900">Email:</span> {owner.email}</p>
                                 <p><span className="font-semibold text-slate-900">Website:</span> <a href={owner.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{owner.website}</a></p>
-                                {owner.social_links?.length ? <p><span className="font-semibold text-slate-900">Social:</span> {owner.social_links.join(', ')}</p> : null}
+                                {getDisplaySocialLinks(owner.social_links).length ? (
+                                  <div>
+                                    <p className="font-semibold text-slate-900">Social:</p>
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                      {getDisplaySocialLinks(owner.social_links).map((link) => (
+                                        <a key={link} href={link} target="_blank" rel="noreferrer" className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-blue-700 hover:underline">
+                                          {new URL(link).hostname.replace(/^www\./, '')}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             )}
                           </div>
@@ -3815,14 +4460,118 @@ const App: React.FC = () => {
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-semibold text-slate-900">Standard Investor Update</p>
                       <p className="mt-1 text-xs text-slate-500">Race recap, training notes, and immediate horse-level updates.</p>
-                      <button type="button" className="mt-3 inline-flex rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Create Draft</button>
+                      <button type="button" onClick={() => openInvestorUpdateBuilder('standard')} className="mt-3 inline-flex rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Create Draft</button>
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-semibold text-slate-900">Quarterly Investor Update</p>
                       <p className="mt-1 text-xs text-slate-500">Quarterly performance summary, capital narrative, and outlook.</p>
-                      <button type="button" className="mt-3 inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Create Quarterly Draft</button>
+                      <button type="button" onClick={() => openInvestorUpdateBuilder('quarterly')} className="mt-3 inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Create Quarterly Draft</button>
                     </div>
                   </div>
+                  {showInvestorUpdateBuilder ? (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <label className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">Template</span>
+                          <select
+                            value={investorUpdateDraft.template}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, template: event.target.value as InvestorUpdateType }))}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="standard">Standard Investor Update</option>
+                            <option value="quarterly">Quarterly Investor Update</option>
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">Horse</span>
+                          <select
+                            value={investorUpdateDraft.horseId}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, horseId: event.target.value }))}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            {allHorses.map((horse) => (
+                              <option key={horse.horse_id} value={horse.horse_id}>{horse.horse_name} ({horse.horse_id})</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block text-sm md:col-span-2">
+                          <span className="mb-1 block font-medium text-slate-700">Headline</span>
+                          <input
+                            value={investorUpdateDraft.headline}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, headline: event.target.value }))}
+                            placeholder="Investor update headline"
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <label className="block text-sm md:col-span-2">
+                          <span className="mb-1 block font-medium text-slate-700">Summary</span>
+                          <textarea
+                            rows={2}
+                            value={investorUpdateDraft.summary}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, summary: event.target.value }))}
+                            placeholder="One paragraph summary for investors"
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <label className="block text-sm md:col-span-2">
+                          <span className="mb-1 block font-medium text-slate-700">Body</span>
+                          <textarea
+                            rows={8}
+                            value={investorUpdateDraft.body}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, body: event.target.value }))}
+                            placeholder="Write the full investor update body..."
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <label className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">As Of Date</span>
+                          <input
+                            type="date"
+                            value={investorUpdateDraft.asOfDate}
+                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, asOfDate: event.target.value }))}
+                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        </label>
+                        <div className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">Download Format</span>
+                          <div className="flex gap-2">
+                            <select
+                              value={downloadFormat}
+                              onChange={(event) => setDownloadFormat(event.target.value as 'html' | 'docx' | 'pdf')}
+                              className="min-w-[130px] rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            >
+                              <option value="html">HTML</option>
+                              <option value="docx">DOCX</option>
+                              <option value="pdf">PDF</option>
+                            </select>
+                            <button type="button" onClick={() => void downloadInvestorUpdate()} className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Download</button>
+                          </div>
+                        </div>
+                      </div>
+                      {investorUpdateError ? <p className="mt-3 text-xs font-medium text-rose-700">{investorUpdateError}</p> : null}
+                      {investorUpdateNotice ? <p className="mt-3 text-xs font-medium text-emerald-700">{investorUpdateNotice}</p> : null}
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button type="button" disabled={isSavingInvestorUpdate} onClick={() => void saveInvestorUpdateLocally()} className="inline-flex rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                          {isSavingInvestorUpdate ? 'Saving...' : 'Save Locally (HTML)'}
+                        </button>
+                        <button type="button" onClick={() => setShowInvestorUpdateBuilder(false)} className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">Close Builder</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {savedInvestorUpdates.length ? (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved This Session</p>
+                      <ul className="mt-2 space-y-2">
+                        {savedInvestorUpdates.map((item) => (
+                          <li key={`${item.fileName}-${item.savedAt}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p className="text-sm font-medium text-slate-900">{item.fileName}</p>
+                            <p className="text-xs text-slate-500">{item.horseName}</p>
+                            <p className="truncate text-[11px] text-slate-500">{item.filePath}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </article>
               </section>
             ) : null}
@@ -4114,18 +4863,19 @@ const App: React.FC = () => {
                           <p><span className="mr-2 font-semibold">1.</span>Issuance Submission Date: <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('submissionDate', e.currentTarget.textContent?.trim() || '')} className="rounded px-1 hover:bg-slate-100">{hltDraft.submissionDate || 'YYYY-MM-DD'}</span></p>
                           <p><span className="mr-2 font-semibold">2.</span>Token Name: <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('tokenName', e.currentTarget.textContent?.trim() || '')} className="rounded bg-slate-50 px-1 font-mono hover:bg-slate-100">{hltDraft.tokenName}</span></p>
                           <p className="pl-6 text-sm text-slate-700">ERC20 blockchain identifier for this token will be: <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('erc20Identifier', e.currentTarget.textContent?.trim() || '')} className="rounded bg-slate-50 px-1 font-mono hover:bg-slate-100">{hltDraft.erc20Identifier}</span></p>
-                          <p><span className="mr-2 font-semibold">3.</span>Token Issuance Particulars: <span className="text-sm text-slate-500">(Priced in NZD to be converted to AED prior to issuance)</span></p>
+                          <p><span className="mr-2 font-semibold">3.</span>Horse Microchip Number: <span>{hltHorse?.microchip_number || 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">4.</span>Token Issuance Particulars: <span className="text-sm text-slate-500">(Priced in NZD to be converted to AED prior to issuance)</span></p>
                           <p className="pl-6">a. Number of Tokens issued:- <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('numTokens', e.currentTarget.textContent?.trim() || '')} className="rounded px-1 font-semibold hover:bg-slate-100">{hltDraft.numTokens || '0'}</span></p>
                           <p className="pl-6">b. Token Price:- <span contentEditable suppressContentEditableWarning onBlur={(e) => onHltTokenPriceChange(e.currentTarget.textContent?.replace(/[^0-9.]/g, '') || '')} className="rounded px-1 font-semibold hover:bg-slate-100">${parseNumber(hltDraft.tokenPriceNzd).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
                           <p className="pl-6">c. Total Issuance Value:- <span className="rounded px-1 font-semibold">${hltTotalIssuanceValue.toLocaleString('en-NZ')}</span></p>
-                          <p><span className="mr-2 font-semibold">4.</span>Horse(s):- <span>{hltHorse ? `${hltHorse.horse_name} (${hltHorse.country_code}) ${extractFoalingYear(hltHorse.foaling_date)}` : 'n/a'}</span></p>
-                          <p><span className="mr-2 font-semibold">5.</span>Stable / Trainer:- <span>{hltTrainer ? `${hltTrainer.trainer_name}${hltTrainer.notes ? `, ${hltTrainer.notes}` : ''}` : 'n/a'}</span></p>
-                          <p><span className="mr-2 font-semibold">6.</span>Horse Asset Lease/Owner:- <span>{hltOwner?.owner_name || 'n/a'}</span></p>
-                          <p><span className="mr-2 font-semibold">7.</span>Governing Body:- <span>{hltGoverningBody ? `${hltGoverningBody.governing_body_name} (${hltGoverningBody.governing_body_code})` : 'n/a'}</span></p>
-                          <p><span className="mr-2 font-semibold">8.</span>Product commercial details:-</p>
+                          <p><span className="mr-2 font-semibold">5.</span>Horse(s): <span>{hltHorse ? `${hltHorse.horse_name} (${hltHorse.country_code}) ${extractFoalingYear(hltHorse.foaling_date)}` : 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">6.</span>Stable / Trainer: <span>{hltTrainer ? `${hltTrainer.trainer_name}${hltTrainer.notes ? `, ${hltTrainer.notes}` : ''}` : 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">7.</span>Horse Asset Lease/Owner: <span>{hltOwner?.owner_name || 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">8.</span>Governing Body: <span>{hltGoverningBody ? `${hltGoverningBody.governing_body_name} (${hltGoverningBody.governing_body_code})` : 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">9.</span>Product commercial details:</p>
                           <p className="pl-6">a. HLT Lease period: <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('leaseLengthMonths', e.currentTarget.textContent?.replace(/[^0-9]/g, '') || '')} className="rounded px-1 hover:bg-slate-100">{hltDraft.leaseLengthMonths || '0'}</span> Months commencing <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('leaseStartDate', e.currentTarget.textContent?.trim() || '')} className="rounded px-1 hover:bg-slate-100">{hltDraft.leaseStartDate || 'YYYY-MM-DD'}</span></p>
                           <p className="pl-6">b. Stakes Split: Agreed split of race winnings between owner and investor. For this Issuance the split is <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('ownerStakesSplit', e.currentTarget.textContent?.replace(/[^0-9.]/g, '') || '')} className="rounded px-1 hover:bg-slate-100">{hltDraft.ownerStakesSplit || '0'}</span>/<span>{hltInvestorSplit}</span> in favour of the tokenholders.</p>
-                          <p><span className="mr-2 font-semibold">9.</span>Variations:- <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('variations', e.currentTarget.textContent?.trim() || 'n/a')} className="rounded px-1 hover:bg-slate-100">{hltDraft.variations || 'n/a'}</span></p>
+                          <p><span className="mr-2 font-semibold">10.</span>Variations: <span contentEditable suppressContentEditableWarning onBlur={(e) => updateHltReviewField('variations', e.currentTarget.textContent?.trim() || 'n/a')} className="rounded px-1 hover:bg-slate-100">{hltDraft.variations || 'n/a'}</span></p>
                         </div>
                       </div>
                     </div>
