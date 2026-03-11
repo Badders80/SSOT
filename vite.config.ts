@@ -440,6 +440,25 @@ const attachAppMiddlewares = (middlewares: { use: (path: string, handler: (req: 
 };
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/src/routes/DashboardRoute')) return 'route-dashboard';
+          if (id.includes('/src/routes/LeaseRoute') || id.includes('/src/routes/ReferenceRoute')) return 'route-operations';
+          if (id.includes('/src/lib/lazyExports')) return 'document-export-helpers';
+
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-core';
+          if (id.includes('/docx/') || id.includes('/jszip/')) return 'document-docx';
+          if (id.includes('/jspdf/')) return 'document-pdf';
+          if (id.includes('/html2canvas/') || id.includes('/canvg/') || id.includes('/css-line-break/')) return 'document-capture';
+          if (id.includes('/lucide-react/')) return 'ui-icons';
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     host: '127.0.0.1',

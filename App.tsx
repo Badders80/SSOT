@@ -1,39 +1,39 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Document as DocxDocument, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
+  ChevronDown,
   BadgeCheck,
   BriefcaseBusiness,
-  CircleDollarSign,
   FileText,
   ExternalLink,
   FileCheck2,
-  FolderSync,
   Landmark,
   LayoutDashboard,
   Link2,
-  PlusCircle,
   ShieldCheck,
 } from 'lucide-react';
+import { buildHltDocxBlob, buildInvestorUpdateDocxBlob, downloadHltPdfFromHtml, downloadInvestorUpdatePdf } from './src/lib/lazyExports';
+
+const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
+const LeaseRoute = lazy(() => import('./src/routes/LeaseRoute'));
+const ReferenceRoute = lazy(() => import('./src/routes/ReferenceRoute'));
 
 type RouteKey =
   | 'dashboard'
   | 'horses'
   | 'horse'
   | 'trainers'
+  | 'trainer'
   | 'owners'
+  | 'owner'
   | 'governingBodies'
+  | 'governingBody'
   | 'leases'
   | 'documentsTemplates'
   | 'documentsGenerated'
-  | 'complianceRules'
-  | 'complianceSyndication'
+  | 'complianceNewZealand'
+  | 'complianceDubai'
   | 'complianceSsot'
   | 'complianceArchive'
-  | 'contentStudio'
   | 'intake'
   | 'documents';
 
@@ -157,6 +157,9 @@ type ArchivedRecord = {
   name: string;
   archived_at: string;
   details: string;
+  record?: HorseRecord | TrainerRecord | OwnerRecord | GoverningBodyRecord;
+  image_src?: string;
+  asset_path?: string;
 };
 
 type HLTRecord = {
@@ -230,16 +233,7 @@ type SavedInvestorUpdate = {
 
 type RouteState = {
   route: RouteKey;
-  horseId: string | null;
-};
-
-type MetricCardProps = {
-  label: string;
-  value: string;
-  helper: string;
-  progress: number;
-  icon: React.ReactNode;
-  href: string;
+  entityId: string | null;
 };
 
 type PersistedLocalState = {
@@ -261,23 +255,33 @@ const parseRoute = (hash: string): RouteState => {
   const clean = hash.replace(/^#\/?/, '').trim();
   const parts = clean.split('/').filter(Boolean);
   if (parts[0] === 'horse' && parts[1]) {
-    return { route: 'horse', horseId: decodeURIComponent(parts[1]) };
+    return { route: 'horse', entityId: decodeURIComponent(parts[1]) };
   }
-  if (parts[0] === 'horses') return { route: 'horses', horseId: null };
-  if (parts[0] === 'trainers') return { route: 'trainers', horseId: null };
-  if (parts[0] === 'owners') return { route: 'owners', horseId: null };
-  if (parts[0] === 'governing-bodies') return { route: 'governingBodies', horseId: null };
-  if (parts[0] === 'leases') return { route: 'leases', horseId: null };
-  if (parts[0] === 'documents' && parts[1] === 'templates') return { route: 'documentsTemplates', horseId: null };
-  if (parts[0] === 'documents' && parts[1] === 'generated') return { route: 'documentsGenerated', horseId: null };
-  if (parts[0] === 'compliance' && parts[1] === 'rules-of-racing') return { route: 'complianceRules', horseId: null };
-  if (parts[0] === 'compliance' && parts[1] === 'syndication-rules') return { route: 'complianceSyndication', horseId: null };
-  if (parts[0] === 'compliance' && parts[1] === 'ssot-profiles') return { route: 'complianceSsot', horseId: null };
-  if (parts[0] === 'compliance' && parts[1] === 'archive') return { route: 'complianceArchive', horseId: null };
-  if (parts[0] === 'content-studio') return { route: 'contentStudio', horseId: null };
-  if (parts[0] === 'intake') return { route: 'intake', horseId: null };
-  if (parts[0] === 'documents') return { route: 'documents', horseId: null };
-  return { route: 'dashboard', horseId: null };
+  if (parts[0] === 'trainer' && parts[1]) {
+    return { route: 'trainer', entityId: decodeURIComponent(parts[1]) };
+  }
+  if (parts[0] === 'owner' && parts[1]) {
+    return { route: 'owner', entityId: decodeURIComponent(parts[1]) };
+  }
+  if (parts[0] === 'governing-body' && parts[1]) {
+    return { route: 'governingBody', entityId: decodeURIComponent(parts[1]) };
+  }
+  if (parts[0] === 'horses') return { route: 'horses', entityId: null };
+  if (parts[0] === 'trainers') return { route: 'trainers', entityId: null };
+  if (parts[0] === 'owners') return { route: 'owners', entityId: null };
+  if (parts[0] === 'governing-bodies') return { route: 'governingBodies', entityId: null };
+  if (parts[0] === 'leases') return { route: 'leases', entityId: null };
+  if (parts[0] === 'documents' && parts[1] === 'templates') return { route: 'documentsTemplates', entityId: null };
+  if (parts[0] === 'documents' && parts[1] === 'generated') return { route: 'documentsGenerated', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'rules-of-racing') return { route: 'complianceNewZealand', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'syndication-rules') return { route: 'complianceNewZealand', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'jurisdiction' && parts[2] === 'new-zealand') return { route: 'complianceNewZealand', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'jurisdiction' && parts[2] === 'dubai') return { route: 'complianceDubai', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'ssot-profiles') return { route: 'complianceSsot', entityId: null };
+  if (parts[0] === 'compliance' && parts[1] === 'archive') return { route: 'complianceArchive', entityId: null };
+  if (parts[0] === 'intake') return { route: 'intake', entityId: null };
+  if (parts[0] === 'documents') return { route: 'documents', entityId: null };
+  return { route: 'dashboard', entityId: null };
 };
 
 const horseImageFor = (horse: HorseRecord): string => {
@@ -419,6 +423,11 @@ const appendSourceNote = (base: string, note: string): string => {
   const trimmed = base.trim();
   if (!trimmed) return note;
   return trimmed.includes(note) ? trimmed : `${trimmed} | ${note}`;
+};
+
+const extractAssetPath = (sourceNotes: string): string => {
+  const match = sourceNotes.match(/(?:^|\|\s*)asset_path:([^|]+)/i);
+  return match?.[1]?.trim() ?? '';
 };
 
 const investorUpdateHtml = (input: {
@@ -773,68 +782,6 @@ const buildHltDocumentHtml = (record: HLTRecord): string => {
 </html>`;
 };
 
-const buildHltDocxBlob = async (record: HLTRecord): Promise<Blob> => {
-  const doc = new DocxDocument({
-    sections: [{
-      children: [
-        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('Horse Lease Token ("HLT") New Issuance Details')] }),
-        new Paragraph(`1. Issuance Submission Date: ${formalDate(record.submission_date)}`),
-        new Paragraph(`2. Token Name: ${record.token_name}`),
-        new Paragraph(`   ERC20 blockchain identifier: ${record.erc20_identifier}`),
-        new Paragraph(`3. Horse Microchip Number: ${record.horse_microchip || 'n/a'}`),
-        new Paragraph('4. Token Issuance Particulars:'),
-        new Paragraph(`   a. Number of Tokens issued: ${record.num_tokens}`),
-        new Paragraph(`   b. Token Price: $${record.token_price_nzd.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
-        new Paragraph(`   c. Total Issuance Value: $${record.total_issuance_value.toLocaleString('en-NZ')}`),
-        new Paragraph(`5. Horse(s): ${record.horse_name} (${record.horse_country}) ${record.horse_year}`),
-        new Paragraph(`6. Stable / Trainer: ${record.trainer_name}${record.stable_location ? `, ${record.stable_location}` : ''}`),
-        new Paragraph(`7. Horse Asset Lease/Owner: ${record.owner_name}`),
-        new Paragraph(`8. Governing Body: ${record.governing_body_name} (${record.governing_body_code})`),
-        new Paragraph('9. Product commercial details:'),
-        new Paragraph(`   a. HLT Lease period: ${record.lease_length_months} Months commencing ${humanDate(record.lease_start_date)}`),
-        new Paragraph(`   b. Stakes Split: ${record.owner_stakes_split}/${record.investor_stakes_split} in favour of tokenholders.`),
-        new Paragraph(`10. Variations: ${record.variations?.trim() || 'n/a'}`),
-      ],
-    }],
-  });
-  return Packer.toBlob(doc);
-};
-
-const downloadHltPdf = async (record: HLTRecord, fileName: string) => {
-  const html = buildHltDocumentHtml(record);
-  const sandbox = document.createElement('div');
-  sandbox.style.position = 'fixed';
-  sandbox.style.left = '-20000px';
-  sandbox.style.top = '0';
-  sandbox.style.width = '794px';
-  sandbox.style.background = '#fff';
-  sandbox.innerHTML = html;
-  document.body.appendChild(sandbox);
-  try {
-    const page = (sandbox.querySelector('.page') as HTMLElement | null) ?? sandbox;
-    const canvas = await html2canvas(page, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      windowWidth: 794,
-    });
-
-    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-    const imgWidth = canvas.width * ratio;
-    const imgHeight = canvas.height * ratio;
-    const x = (pageWidth - imgWidth) / 2;
-    const y = 0;
-
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight, undefined, 'FAST');
-    pdf.save(fileName);
-  } finally {
-    document.body.removeChild(sandbox);
-  }
-};
-
 type ParsedBreedingLink = {
   sourceHorseId: string;
   horseName: string;
@@ -853,6 +800,15 @@ type ScrapedHorseDetails = {
   nztrLifeNumber: string;
   microchipNumber: string;
   performanceProfileUrl: string;
+};
+
+type RecentRaceRecord = {
+  placing: string;
+  date: string;
+  raceName: string;
+  raceUrl: string;
+  distance: string;
+  trackCondition: string;
 };
 
 const parseBreedingLink = (rawLink: string): ParsedBreedingLink | null => {
@@ -933,10 +889,36 @@ const normalizeLineageName = (value: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const decodeHtmlText = (value: string): string => value
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&amp;/g, '&')
+  .replace(/&#39;/g, "'")
+  .replace(/&quot;/g, '"')
+  .replace(/&ndash;/g, '-')
+  .replace(/&rsquo;/g, "'")
+  .replace(/&#x27;/g, "'")
+  .replace(/&lt;/g, '<')
+  .replace(/&gt;/g, '>');
+
+const stripHtml = (value: string): string =>
+  decodeHtmlText(value).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
 const extractText = (html: string, pattern: RegExp): string | null => {
   const match = html.match(pattern);
   if (!match?.[1]) return null;
-  return match[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripHtml(match[1]);
+};
+
+const parseRecentRacesFromPerformanceHtml = (html: string): RecentRaceRecord[] => {
+  const matches = Array.from(html.matchAll(/race-summary-cell">\s*<div[^>]*placing[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*col4[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*><a href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/div>\s*<div[^>]*col2[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*col1[^>]*>([\s\S]*?)<\/div>/gi));
+  return matches.slice(0, 3).map((match) => ({
+    placing: stripHtml(match[1]),
+    date: stripHtml(match[2]),
+    raceUrl: match[3].startsWith('http') ? match[3] : `https://loveracing.nz${match[3]}`,
+    raceName: stripHtml(match[4]),
+    distance: stripHtml(match[5]),
+    trackCondition: stripHtml(match[6]),
+  })).filter((row) => row.raceName);
 };
 
 const scrapeHorseDetailsFromHtml = (html: string, fallback: ParsedBreedingLink): ScrapedHorseDetails | null => {
@@ -1790,32 +1772,8 @@ const enrichProfileFromUrls = async (urls: string[]): Promise<{
   };
 };
 
-const MetricCard: React.FC<MetricCardProps> = ({ label, value, helper, progress, icon, href }) => (
-  <a href={href} className="block h-full transition-transform hover:-translate-y-0.5">
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45 }}
-      className="surface-card flex h-full flex-col rounded-xl p-5"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-        </div>
-        <div className="rounded-lg bg-blue-50 p-2 text-blue-700">{icon}</div>
-      </div>
-      <p className="mt-3 min-h-[2.5rem] text-xs text-slate-500">{helper}</p>
-      <div className="mt-auto h-1.5 overflow-hidden rounded-full bg-slate-100">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
-          initial={{ width: 0 }}
-          animate={{ width: `${Math.max(4, Math.min(100, progress))}%` }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-        />
-      </div>
-    </motion.article>
-  </a>
+const RouteLoadingFallback: React.FC = () => (
+  <article className="surface-card rounded-xl p-5 text-sm text-slate-500">Loading view...</article>
 );
 
 const FieldReviewRow: React.FC<{
@@ -1960,6 +1918,10 @@ const App: React.FC = () => {
   const [seed, setSeed] = useState<SeedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [routeState, setRouteState] = useState<RouteState>(() => parseRoute(window.location.hash));
+  const [isComplianceJurisdictionOpen, setIsComplianceJurisdictionOpen] = useState(() => {
+    const initialRoute = parseRoute(window.location.hash).route;
+    return initialRoute === 'complianceNewZealand' || initialRoute === 'complianceDubai';
+  });
   const [customHorses, setCustomHorses] = useState<HorseRecord[]>([]);
   const [customTrainers, setCustomTrainers] = useState<TrainerRecord[]>([]);
   const [customOwners, setCustomOwners] = useState<OwnerRecord[]>([]);
@@ -1981,6 +1943,8 @@ const App: React.FC = () => {
   const [removeCandidateId, setRemoveCandidateId] = useState('');
   const [archivedRecords, setArchivedRecords] = useState<ArchivedRecord[]>([]);
   const [archiveNotice, setArchiveNotice] = useState<string | null>(null);
+  const [recentRacesByHorseId, setRecentRacesByHorseId] = useState<Record<string, RecentRaceRecord[]>>({});
+  const [recentRaceLoadingHorseId, setRecentRaceLoadingHorseId] = useState<string | null>(null);
   const [editingHorseId, setEditingHorseId] = useState<string | null>(null);
   const [editingTrainerId, setEditingTrainerId] = useState<string | null>(null);
   const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
@@ -2091,38 +2055,60 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (routeState.route === 'complianceNewZealand' || routeState.route === 'complianceDubai') {
+      setIsComplianceJurisdictionOpen(true);
+    }
+  }, [routeState.route]);
+
+  useEffect(() => {
     const load = async () => {
+      let persisted: PersistedLocalState | null = null;
       try {
         const raw = window.localStorage.getItem(LOCAL_STATE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as PersistedLocalState;
           if (parsed && typeof parsed === 'object') {
-            setSeed(parsed.seed ?? null);
-            setCustomHorses(parsed.customHorses ?? []);
-            setCustomTrainers(parsed.customTrainers ?? []);
-            setCustomOwners(parsed.customOwners ?? []);
-            setCustomGoverningBodies(parsed.customGoverningBodies ?? []);
-            setHorseEdits(parsed.horseEdits ?? {});
-            setTrainerEdits(parsed.trainerEdits ?? {});
-            setOwnerEdits(parsed.ownerEdits ?? {});
-            setGoverningEdits(parsed.governingEdits ?? {});
-            setArchivedRecords(parsed.archivedRecords ?? []);
-            return;
+            persisted = parsed;
           }
         }
       } catch {
         window.localStorage.removeItem(LOCAL_STATE_KEY);
       }
 
+      let latestSeed: SeedPayload | null = null;
       try {
         const res = await fetch('/intake/v0.1/seed.json', { cache: 'no-store' });
         if (!res.ok) {
           throw new Error(`Failed to load seed.json (${res.status})`);
         }
         const json = await res.json();
-        setSeed(json as SeedPayload);
+        latestSeed = json as SeedPayload;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!persisted?.seed) {
+          setError(err instanceof Error ? err.message : 'Failed to load data');
+        }
+      }
+
+      if (persisted) {
+        setSeed(latestSeed ?? persisted.seed ?? null);
+        setCustomHorses(persisted.customHorses ?? []);
+        setCustomTrainers(persisted.customTrainers ?? []);
+        setCustomOwners(persisted.customOwners ?? []);
+        setCustomGoverningBodies(persisted.customGoverningBodies ?? []);
+        setHorseEdits(persisted.horseEdits ?? {});
+        setTrainerEdits(persisted.trainerEdits ?? {});
+        setOwnerEdits(persisted.ownerEdits ?? {});
+        setGoverningEdits(persisted.governingEdits ?? {});
+        setArchivedRecords(persisted.archivedRecords ?? []);
+        if (latestSeed) {
+          setError(null);
+        }
+        return;
+      }
+
+      if (latestSeed) {
+        setSeed(latestSeed);
+        setError(null);
       }
     };
     void load();
@@ -2259,7 +2245,13 @@ const App: React.FC = () => {
     return map;
   }, [allGoverningBodies]);
 
-  const selectedHorse = routeState.horseId ? horseById.get(routeState.horseId) ?? null : null;
+  const selectedHorse = routeState.route === 'horse' && routeState.entityId ? horseById.get(routeState.entityId) ?? null : null;
+  const selectedTrainer = routeState.route === 'trainer' && routeState.entityId ? trainerById.get(routeState.entityId) ?? null : null;
+  const selectedOwner = routeState.route === 'owner' && routeState.entityId ? ownerById.get(routeState.entityId) ?? null : null;
+  const selectedGoverningBody = routeState.route === 'governingBody' && routeState.entityId ? governingBodyByCode.get(routeState.entityId) ?? null : null;
+  const selectedHorseTrainer = selectedHorse ? trainerById.get(selectedHorse.trainer_id) ?? null : null;
+  const selectedHorseOwner = selectedHorse ? ownerById.get(selectedHorse.owner_id) ?? null : null;
+  const selectedHorseGoverningBody = selectedHorse ? governingBodyByCode.get(selectedHorse.governing_body_code) ?? null : null;
   const removableHorses = useMemo(() => allHorses.filter((horse) => !seededHorseIds.has(horse.horse_id)), [allHorses]);
   const removableTrainers = useMemo(() => allTrainers.filter((trainer) => !seededTrainerIds.has(trainer.trainer_id)), [allTrainers]);
   const removableOwners = useMemo(() => allOwners.filter((owner) => !seededOwnerIds.has(owner.owner_id)), [allOwners]);
@@ -2276,6 +2268,51 @@ const App: React.FC = () => {
   const selectedHorseIntake = selectedHorse
     ? (seed?.intakeQueue ?? []).filter((row) => row.parsed_horse_name === selectedHorse.horse_name)
     : [];
+  const selectedHorseRecentRaces = selectedHorse ? (recentRacesByHorseId[selectedHorse.horse_id] ?? []) : [];
+  const selectedHorseRecentRacesLoading = selectedHorse ? recentRaceLoadingHorseId === selectedHorse.horse_id : false;
+
+  useEffect(() => {
+    const horseId = selectedHorse?.horse_id ?? '';
+    const performanceUrl = selectedHorse?.performance_profile_url ?? '';
+    if (!horseId || !performanceUrl) return;
+    if (Object.prototype.hasOwnProperty.call(recentRacesByHorseId, horseId)) return;
+
+    let cancelled = false;
+    setRecentRaceLoadingHorseId(horseId);
+
+    const loadRecentRaces = async () => {
+      const html = await fetchUrlViaProxy(performanceUrl);
+      const nextRows = html ? parseRecentRacesFromPerformanceHtml(html) : [];
+      if (cancelled) return;
+      setRecentRacesByHorseId((prev) => ({ ...prev, [horseId]: nextRows }));
+      setRecentRaceLoadingHorseId((prev) => (prev === horseId ? null : prev));
+    };
+
+    void loadRecentRaces();
+    return () => {
+      cancelled = true;
+      setRecentRaceLoadingHorseId((prev) => (prev === horseId ? null : prev));
+    };
+  }, [selectedHorse?.horse_id, selectedHorse?.performance_profile_url, recentRacesByHorseId]);
+
+  const selectedTrainerHorses = selectedTrainer
+    ? allHorses.filter((horse) => horse.trainer_id === selectedTrainer.trainer_id)
+    : [];
+  const selectedOwnerHorses = selectedOwner
+    ? allHorses.filter((horse) => horse.owner_id === selectedOwner.owner_id)
+    : [];
+  const selectedGoverningHorses = selectedGoverningBody
+    ? allHorses.filter((horse) => horse.governing_body_code === selectedGoverningBody.governing_body_code)
+    : [];
+  const selectedTrainerHorseIds = new Set(selectedTrainerHorses.map((horse) => horse.horse_id));
+  const selectedOwnerHorseIds = new Set(selectedOwnerHorses.map((horse) => horse.horse_id));
+  const selectedGoverningHorseIds = new Set(selectedGoverningHorses.map((horse) => horse.horse_id));
+  const selectedTrainerLeases = (seed?.leases ?? []).filter((lease) => selectedTrainerHorseIds.has(lease.horse_id));
+  const selectedOwnerLeases = (seed?.leases ?? []).filter((lease) => selectedOwnerHorseIds.has(lease.horse_id));
+  const selectedGoverningLeases = (seed?.leases ?? []).filter((lease) => selectedGoverningHorseIds.has(lease.horse_id));
+  const selectedTrainerDocs = (seed?.documents ?? []).filter((doc) => selectedTrainerHorseIds.has(doc.horse_id));
+  const selectedOwnerDocs = (seed?.documents ?? []).filter((doc) => selectedOwnerHorseIds.has(doc.horse_id));
+  const selectedGoverningDocs = (seed?.documents ?? []).filter((doc) => selectedGoverningHorseIds.has(doc.horse_id));
 
   const stats = useMemo(() => {
     if (!seed) return { parsedCount: 0, totalIssuance: 0, issuedIssuance: 0, proposedIssuance: 0, potentialIssuance: 0 };
@@ -2439,7 +2476,10 @@ const App: React.FC = () => {
           id: horse.horse_id,
           name: horse.horse_name,
           archived_at: archivedAt,
-          details: `${horse.sex} • ${horse.colour}`,
+          details: `${horse.sex} ? ${horse.colour}`,
+          record: horse,
+          image_src: horseImageOverrides[horse.horse_id] ?? '',
+          asset_path: extractAssetPath(horse.source_notes),
         }, ...prev]);
       }
       setCustomHorses((prev) => prev.filter((row) => row.horse_id !== removalTarget.id));
@@ -2462,6 +2502,8 @@ const App: React.FC = () => {
           name: trainer.trainer_name,
           archived_at: archivedAt,
           details: trainer.stable_name,
+          record: trainer,
+          image_src: trainerImageOverrides[trainer.trainer_id] ?? '',
         }, ...prev]);
       }
       setCustomTrainers((prev) => prev.filter((row) => row.trainer_id !== removalTarget.id));
@@ -2484,6 +2526,8 @@ const App: React.FC = () => {
           name: owner.owner_name,
           archived_at: archivedAt,
           details: owner.website,
+          record: owner,
+          image_src: ownerImageOverrides[owner.owner_id] ?? '',
         }, ...prev]);
       }
       setCustomOwners((prev) => prev.filter((row) => row.owner_id !== removalTarget.id));
@@ -2506,6 +2550,7 @@ const App: React.FC = () => {
           name: body.governing_body_name,
           archived_at: archivedAt,
           details: body.status,
+          record: body,
         }, ...prev]);
       }
       setCustomGoverningBodies((prev) => prev.filter((row) => row.governing_body_code !== removalTarget.id));
@@ -2515,8 +2560,41 @@ const App: React.FC = () => {
         return cloned;
       });
     }
-    setArchiveNotice('This profile has now been archived.');
+    setArchiveNotice('This profile has been removed from the live registry and archived.');
     setRemovalTarget(null);
+  };
+
+  const restoreArchivedRecord = (archivedRecord: ArchivedRecord) => {
+    if (!archivedRecord.record) {
+      setArchiveNotice('This archive entry is legacy metadata only and cannot be restored automatically.');
+      return;
+    }
+
+    if (archivedRecord.kind === 'horse') {
+      const horse = archivedRecord.record as HorseRecord;
+      setCustomHorses((prev) => [...prev.filter((row) => row.horse_id !== horse.horse_id), horse]);
+      if (archivedRecord.image_src) {
+        setHorseImageOverrides((prev) => ({ ...prev, [horse.horse_id]: archivedRecord.image_src as string }));
+      }
+    } else if (archivedRecord.kind === 'trainer') {
+      const trainer = archivedRecord.record as TrainerRecord;
+      setCustomTrainers((prev) => [...prev.filter((row) => row.trainer_id !== trainer.trainer_id), trainer]);
+      if (archivedRecord.image_src) {
+        setTrainerImageOverrides((prev) => ({ ...prev, [trainer.trainer_id]: archivedRecord.image_src as string }));
+      }
+    } else if (archivedRecord.kind === 'owner') {
+      const owner = archivedRecord.record as OwnerRecord;
+      setCustomOwners((prev) => [...prev.filter((row) => row.owner_id !== owner.owner_id), owner]);
+      if (archivedRecord.image_src) {
+        setOwnerImageOverrides((prev) => ({ ...prev, [owner.owner_id]: archivedRecord.image_src as string }));
+      }
+    } else {
+      const body = archivedRecord.record as GoverningBodyRecord;
+      setCustomGoverningBodies((prev) => [...prev.filter((row) => row.governing_body_code !== body.governing_body_code), body]);
+    }
+
+    setArchivedRecords((prev) => prev.filter((row) => !(row.kind === archivedRecord.kind && row.id === archivedRecord.id && row.archived_at === archivedRecord.archived_at)));
+    setArchiveNotice(`${archivedRecord.name} has been restored to the live registry.`);
   };
 
   const openRemovePicker = (kind: RemoveTarget['kind']) => {
@@ -3116,11 +3194,11 @@ const App: React.FC = () => {
       return;
     }
     if (format === 'docx') {
-      const blob = await buildHltDocxBlob(hltRecord);
+      const blob = await buildHltDocxBlob(hltRecord, { formalDate, humanDate });
       triggerBlobDownload(blob, `${baseName}.docx`);
       return;
     }
-    await downloadHltPdf(hltRecord, `${baseName}.pdf`);
+    await downloadHltPdfFromHtml(buildHltDocumentHtml(hltRecord), `${baseName}.pdf`);
   };
 
   const generateAndSaveHlt = () => {
@@ -3329,77 +3407,52 @@ const App: React.FC = () => {
   };
 
   const route = routeState.route;
-  const routeForNav = route === 'horse' ? 'horses' : route;
+  const routeForNav = route === 'horse'
+    ? 'horses'
+    : route === 'trainer'
+      ? 'trainers'
+      : route === 'owner'
+        ? 'owners'
+        : route === 'governingBody'
+          ? 'governingBodies'
+          : route;
   const isRepositorySectionActive = ['horses', 'trainers', 'owners', 'governingBodies'].includes(routeForNav);
+  const isComplianceJurisdictionActive = ['complianceNewZealand', 'complianceDubai'].includes(routeForNav);
   const contentTitle = route === 'dashboard'
     ? 'Operational Dashboard'
     : route === 'horses'
       ? 'Horse Registry'
-      : route === 'trainers'
-        ? 'Trainers / Stables'
-      : route === 'owners'
-        ? 'Owner Registry'
-        : route === 'governingBodies'
-          ? 'Governing Bodies'
-          : route === 'documentsTemplates'
-            ? 'Document Templates'
-            : route === 'documentsGenerated'
-              ? 'Generated Documents'
-              : route === 'complianceRules'
-                ? 'Rules of Racing'
-                : route === 'complianceSyndication'
-                  ? 'Syndication Rules'
-                  : route === 'complianceSsot'
-                    ? 'SSOT Profiles'
-                    : route === 'complianceArchive'
-                      ? 'Archive'
-                    : route === 'contentStudio'
-                      ? 'Content Studio'
-          : route === 'horse'
+      : route === 'horse'
         ? `${selectedHorse?.horse_name ?? 'Horse'} Profile`
-        : route === 'leases'
-          ? 'Lease Registry'
-        : route === 'intake'
-          ? 'Intake Queue'
-            : 'Document Register';
-  const horseNameById = new Map(allHorses.map((horse) => [horse.horse_id, horse.horse_name]));
-  const firstGearName = horseNameById.get('HRS-001') ?? 'First Gear';
-  const prudentiaName = horseNameById.get('HRS-002') ?? 'Prudentia';
-
-  const contentStudioNextUp = [
-    {
-      horseId: 'HRS-001',
-      horseName: firstGearName,
-      dateLabel: '18 Apr 2026',
-      location: 'Ellerslie, Auckland',
-      raceName: 'Auckland Autumn Sprint (Mock)',
-      distance: '1400m',
-    },
-    {
-      horseId: 'HRS-002',
-      horseName: prudentiaName,
-      dateLabel: '02 May 2026',
-      location: 'Riccarton, Christchurch',
-      raceName: 'Canterbury Investor Mile (Mock)',
-      distance: '1600m',
-    },
-  ];
-
-  const contentStudioRecentHtmlUpdates = useMemo(
-    () => [
-      ...savedInvestorUpdates.map((item) => ({ fileName: item.fileName, horseName: `${item.horseName} (local save)` })),
-      { fileName: 'First-Gear-Update-02Jan2026.html', horseName: firstGearName },
-      { fileName: 'First-Gear-Update-31Dec2025.html', horseName: firstGearName },
-      { fileName: 'First-Gear-Update-22Dec2025.html', horseName: firstGearName },
-    ],
-    [savedInvestorUpdates, firstGearName],
-  );
-
-  const contentStudioPrudentiaVideos = [
-    { fileName: 'Horse_Prudentia_27Feb2026.mp4', horseName: prudentiaName },
-    { fileName: 'Horse_Prudentia_2March2026.mp4', horseName: prudentiaName },
-  ];
-
+        : route === 'trainers'
+          ? 'Trainers / Stables'
+          : route === 'trainer'
+            ? `${selectedTrainer?.trainer_name ?? 'Trainer'} Profile`
+            : route === 'owners'
+              ? 'Owner Registry'
+              : route === 'owner'
+                ? `${selectedOwner?.owner_name ?? 'Owner'} Profile`
+                : route === 'governingBodies'
+                  ? 'Governing Bodies'
+                  : route === 'governingBody'
+                    ? `${selectedGoverningBody?.governing_body_name ?? 'Governing Body'} Profile`
+                    : route === 'documentsTemplates'
+                      ? 'Document Templates'
+                      : route === 'documentsGenerated'
+                        ? 'Generated Documents'
+                        : route === 'complianceNewZealand'
+                          ? 'Compliance - New Zealand'
+                          : route === 'complianceDubai'
+                            ? 'Compliance - Dubai'
+                            : route === 'complianceSsot'
+                              ? 'SSOT Profiles'
+                              : route === 'complianceArchive'
+                                ? 'Archive'
+                                : route === 'leases'
+                                  ? 'Lease Registry'
+                                  : route === 'intake'
+                                    ? 'Intake Queue'
+                                    : 'Document Register';
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="mission-grid">
@@ -3429,13 +3482,25 @@ const App: React.FC = () => {
               <a className={`nav-item ${routeForNav === 'documentsGenerated' ? 'nav-item-active' : ''}`} href="#/documents/generated"><FileCheck2 size={16} /><span>Generated Documents</span></a>
 
               <p className="px-3 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Compliance</p>
-              <a className={`nav-item ${routeForNav === 'complianceRules' ? 'nav-item-active' : ''}`} href="#/compliance/rules-of-racing"><ShieldCheck size={16} /><span>Rules of Racing</span></a>
-              <a className={`nav-item ${routeForNav === 'complianceSyndication' ? 'nav-item-active' : ''}`} href="#/compliance/syndication-rules"><ShieldCheck size={16} /><span>Syndication Rules</span></a>
+              <button
+                type="button"
+                onClick={() => setIsComplianceJurisdictionOpen((prev) => !prev)}
+                className={`nav-item w-full justify-between ${isComplianceJurisdictionActive ? 'nav-item-active' : ''}`}
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck size={16} />
+                  <span>Jurisdiction</span>
+                </span>
+                <ChevronDown size={14} className={`transition-transform ${isComplianceJurisdictionOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isComplianceJurisdictionOpen ? (
+                <>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceNewZealand' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/new-zealand"><ShieldCheck size={16} /><span>New Zealand</span></a>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceDubai' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/dubai"><ShieldCheck size={16} /><span>Dubai</span></a>
+                </>
+              ) : null}
               <a className={`nav-item ${routeForNav === 'complianceSsot' ? 'nav-item-active' : ''}`} href="#/compliance/ssot-profiles"><ShieldCheck size={16} /><span>SSOT Profiles</span></a>
               <a className={`nav-item ${routeForNav === 'complianceArchive' ? 'nav-item-active' : ''}`} href="#/compliance/archive"><ShieldCheck size={16} /><span>Archive</span></a>
-
-              <p className="px-3 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Content Studio</p>
-              <a className={`nav-item ${routeForNav === 'contentStudio' ? 'nav-item-active' : ''}`} href="#/content-studio"><FolderSync size={16} /><span>Content Studio</span></a>
             </nav>
           </div>
         </aside>
@@ -3472,38 +3537,16 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : null}
-
             {route === 'dashboard' ? (
-              <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Active Horses" value={String(allHorses.length)} helper="Open horse registry" progress={100} icon={<Landmark size={16} />} href="#/horses" />
-                <MetricCard label="Trainers/Stables" value={String(allTrainers.length)} helper="Open trainer register" progress={100} icon={<BadgeCheck size={16} />} href="#/trainers" />
-                <MetricCard label="Owners" value={String(allOwners.length)} helper="Open owner register" progress={100} icon={<BriefcaseBusiness size={16} />} href="#/owners" />
-                <MetricCard label="Active Leases" value={String(seed?.leases.length ?? 0)} helper="Open lease register" progress={100} icon={<Link2 size={16} />} href="#/leases" />
-              </section>
-            ) : null}
-
-            {route === 'dashboard' ? (
-              <>
-                <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {allHorses.map((horse) => (
-                    <a key={horse.horse_id} href={`#/horse/${encodeURIComponent(horse.horse_id)}`} className="block">
-                      <article className="surface-card overflow-hidden rounded-xl transition hover:-translate-y-0.5">
-                        <div className="h-44 bg-slate-100">
-                          <img src={horseImageSrc(horse)} alt={`${horse.horse_name} profile`} className="h-full w-full object-cover" loading="lazy" />
-                        </div>
-                        <div className="p-4">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-2xl font-semibold tracking-tight text-slate-900">{horse.horse_name}</p>
-                            <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600">{horse.horse_id}</span>
-                          </div>
-                          <p className="mt-1 text-sm text-slate-500">{horse.sex} • {horse.colour} • {horse.identity_status}</p>
-                          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-700">Open Full SSOT Profile</p>
-                        </div>
-                      </article>
-                    </a>
-                  ))}
-                </section>
-              </>
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <DashboardRoute
+                  allHorses={allHorses}
+                  allTrainers={allTrainers}
+                  allOwners={allOwners}
+                  leaseCount={seed?.leases.length ?? 0}
+                  horseImageSrc={horseImageSrc}
+                />
+              </Suspense>
             ) : null}
 
             {route === 'horses' ? (
@@ -3708,6 +3751,17 @@ const App: React.FC = () => {
                           <a href={selectedHorse.breeding_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Breeding <ExternalLink size={11} /></a>
                           <a href={selectedHorse.performance_profile_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Performance <ExternalLink size={11} /></a>
                         </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                          {selectedHorseTrainer ? (
+                            <a href={`#/trainer/${encodeURIComponent(selectedHorseTrainer.trainer_id)}`} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 hover:border-blue-200 hover:text-blue-700">Trainer / Stable: {selectedHorseTrainer.stable_name || selectedHorseTrainer.trainer_name}</a>
+                          ) : null}
+                          {selectedHorseOwner ? (
+                            <a href={`#/owner/${encodeURIComponent(selectedHorseOwner.owner_id)}`} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 hover:border-blue-200 hover:text-blue-700">Owner: {selectedHorseOwner.owner_name}</a>
+                          ) : null}
+                          {selectedHorseGoverningBody ? (
+                            <a href={`#/governing-body/${encodeURIComponent(selectedHorseGoverningBody.governing_body_code)}`} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 hover:border-blue-200 hover:text-blue-700">Governing Body: {selectedHorseGoverningBody.governing_body_name}</a>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -3728,43 +3782,25 @@ const App: React.FC = () => {
                     </article>
 
                     <article className="surface-card rounded-xl p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Stable / Trainer</h3>
-                      {trainerById.get(selectedHorse.trainer_id) ? (
-                        <div className="mt-3 space-y-2 text-sm text-slate-700">
-                          <p><span className="font-semibold text-slate-900">Name:</span> {trainerById.get(selectedHorse.trainer_id)?.trainer_name}</p>
-                          <p><span className="font-semibold text-slate-900">Stable:</span> {trainerById.get(selectedHorse.trainer_id)?.stable_name}</p>
-                          <p><span className="font-semibold text-slate-900">Contact Person:</span> {trainerById.get(selectedHorse.trainer_id)?.contact_name}</p>
-                          <p><span className="font-semibold text-slate-900">Phone:</span> {trainerById.get(selectedHorse.trainer_id)?.phone}</p>
-                          <p><span className="font-semibold text-slate-900">Email:</span> {trainerById.get(selectedHorse.trainer_id)?.email}</p>
-                          <p><span className="font-semibold text-slate-900">Website:</span> <a href={trainerById.get(selectedHorse.trainer_id)?.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{trainerById.get(selectedHorse.trainer_id)?.website}</a></p>
-                        </div>
-                      ) : <p className="mt-3 text-sm text-slate-500">No trainer profile linked.</p>}
-                    </article>
-
-                    <article className="surface-card rounded-xl p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Owner</h3>
-                      {ownerById.get(selectedHorse.owner_id) ? (
-                        <div className="mt-3 space-y-2 text-sm text-slate-700">
-                          <p><span className="font-semibold text-slate-900">Name:</span> {ownerById.get(selectedHorse.owner_id)?.owner_name}</p>
-                          <p><span className="font-semibold text-slate-900">Entity Type:</span> {ownerById.get(selectedHorse.owner_id)?.entity_type}</p>
-                          <p><span className="font-semibold text-slate-900">Contact Person:</span> {ownerById.get(selectedHorse.owner_id)?.contact_name}</p>
-                          <p><span className="font-semibold text-slate-900">Phone:</span> {ownerById.get(selectedHorse.owner_id)?.phone}</p>
-                          <p><span className="font-semibold text-slate-900">Email:</span> {ownerById.get(selectedHorse.owner_id)?.email}</p>
-                          <p><span className="font-semibold text-slate-900">Website:</span> <a href={ownerById.get(selectedHorse.owner_id)?.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{ownerById.get(selectedHorse.owner_id)?.website}</a></p>
-                        </div>
-                      ) : <p className="mt-3 text-sm text-slate-500">No owner profile linked.</p>}
-                    </article>
-
-                    <article className="surface-card rounded-xl p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Governing Body</h3>
-                      {governingBodyByCode.get(selectedHorse.governing_body_code) ? (
-                        <div className="mt-3 space-y-2 text-sm text-slate-700">
-                          <p><span className="font-semibold text-slate-900">Code:</span> {governingBodyByCode.get(selectedHorse.governing_body_code)?.governing_body_code}</p>
-                          <p><span className="font-semibold text-slate-900">Name:</span> {governingBodyByCode.get(selectedHorse.governing_body_code)?.governing_body_name}</p>
-                          <p><span className="font-semibold text-slate-900">Status:</span> {governingBodyByCode.get(selectedHorse.governing_body_code)?.status}</p>
-                          <p><span className="font-semibold text-slate-900">Website:</span> <a href={governingBodyByCode.get(selectedHorse.governing_body_code)?.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{governingBodyByCode.get(selectedHorse.governing_body_code)?.website}</a></p>
-                        </div>
-                      ) : <p className="mt-3 text-sm text-slate-500">No governing body profile linked.</p>}
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Last 3 Races</h3>
+                      <div className="mt-3 min-h-[170px] space-y-3 text-sm text-slate-700">
+                        {selectedHorseRecentRaces.map((race) => (
+                          <div key={`${race.date}-${race.raceName}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-slate-900">{race.placing}</p>
+                                <p className="text-xs text-slate-500">{race.date}</p>
+                              </div>
+                              <div className="text-right text-xs text-slate-500">
+                                <p>{race.distance}</p>
+                                <p>{race.trackCondition}</p>
+                              </div>
+                            </div>
+                            <a href={race.raceUrl} target="_blank" rel="noreferrer" className="mt-2 block text-sm text-blue-700 hover:underline">{race.raceName}</a>
+                          </div>
+                        ))}
+                        {selectedHorseRecentRacesLoading ? <div className="h-0" aria-hidden="true" /> : null}
+                      </div>
                     </article>
                   </section>
 
@@ -3800,72 +3836,68 @@ const App: React.FC = () => {
                     ) : <p className="mt-3 text-sm text-slate-500">No commercial terms linked.</p>}
                   </article>
 
-                  <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <article className="surface-card rounded-xl p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Documents</h3>
-                      {selectedHorseDocs.length ? (
-                        <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
-                          <table className="min-w-full text-sm">
-                            <thead>
-                              <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                                <th className="px-3 py-2 font-semibold">Document</th>
-                                <th className="px-3 py-2 font-semibold">Date</th>
-                                <th className="px-3 py-2 font-semibold">Reference</th>
-                                <th className="px-3 py-2 font-semibold">Status</th>
-                                <th className="px-3 py-2 font-semibold">Download</th>
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Documents</h3>
+                    {selectedHorseDocs.length ? (
+                      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <th className="px-3 py-2 font-semibold">Document</th>
+                              <th className="px-3 py-2 font-semibold">Date</th>
+                              <th className="px-3 py-2 font-semibold">Reference</th>
+                              <th className="px-3 py-2 font-semibold">Status</th>
+                              <th className="px-3 py-2 font-semibold">Download</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedHorseDocs.map((doc) => (
+                              <tr key={doc.document_id} className="border-t border-slate-100">
+                                <td className="px-3 py-2">
+                                  <p className="font-semibold text-slate-900">{doc.document_id}</p>
+                                  <p className="text-xs text-slate-500">{doc.document_type}</p>
+                                </td>
+                                <td className="px-3 py-2 text-slate-700">{doc.document_date}</td>
+                                <td className="max-w-[420px] px-3 py-2">
+                                  <p className="truncate text-slate-700">{doc.source_reference}</p>
+                                  {docWebHref(doc.file_path) ? (
+                                    <a href={docWebHref(doc.file_path) ?? '#'} target="_blank" rel="noreferrer" className="truncate text-xs text-blue-700 hover:underline">{doc.file_path}</a>
+                                  ) : (
+                                    <p className="truncate text-xs text-slate-500">{doc.file_path}</p>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${doc.notes?.toLowerCase() === 'generated' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                                    {doc.notes || 'Current'}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <button type="button" onClick={() => void downloadHorseDocument(doc, 'html')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">HTML</button>
+                                    <button type="button" onClick={() => void downloadHorseDocument(doc, 'docx')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">DOCX</button>
+                                    <button type="button" onClick={() => void downloadHorseDocument(doc, 'pdf')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">PDF</button>
+                                  </div>
+                                </td>
                               </tr>
-                            </thead>
-                            <tbody>
-                              {selectedHorseDocs.map((doc) => (
-                                <tr key={doc.document_id} className="border-t border-slate-100">
-                                  <td className="px-3 py-2">
-                                    <p className="font-semibold text-slate-900">{doc.document_id}</p>
-                                    <p className="text-xs text-slate-500">{doc.document_type}</p>
-                                  </td>
-                                  <td className="px-3 py-2 text-slate-700">{doc.document_date}</td>
-                                  <td className="max-w-[300px] px-3 py-2">
-                                    <p className="truncate text-slate-700">{doc.source_reference}</p>
-                                    {docWebHref(doc.file_path) ? (
-                                      <a href={docWebHref(doc.file_path) ?? '#'} target="_blank" rel="noreferrer" className="truncate text-xs text-blue-700 hover:underline">
-                                        {doc.file_path}
-                                      </a>
-                                    ) : (
-                                      <p className="truncate text-xs text-slate-500">{doc.file_path}</p>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${doc.notes?.toLowerCase() === 'generated' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                                      {doc.notes || 'Current'}
-                                    </span>
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <div className="flex flex-wrap gap-1.5">
-                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'html')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">HTML</button>
-                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'docx')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">DOCX</button>
-                                      <button type="button" onClick={() => void downloadHorseDocument(doc, 'pdf')} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">PDF</button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p className="mt-3 text-sm text-slate-500">No docs linked.</p>}
-                    </article>
-
-                    <article className="surface-card rounded-xl p-5">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Additional Info</h3>
-                      <div className="mt-3 space-y-2 text-sm text-slate-700">
-                        <p><span className="font-semibold text-slate-900">Source Primary:</span> {selectedHorse.source_primary}</p>
-                        <p><span className="font-semibold text-slate-900">Last Verified:</span> {selectedHorse.source_last_verified_at}</p>
-                        <p><span className="font-semibold text-slate-900">Source Notes:</span> {selectedHorse.source_notes}</p>
-                        <p><span className="font-semibold text-slate-900">Intake Records:</span> {selectedHorseIntake.length}</p>
-                        {selectedHorseIntake.map((row) => (
-                          <p key={row.intake_id} className="text-xs text-slate-500">{row.intake_id} • {row.parse_status}</p>
-                        ))}
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </article>
-                  </section>
+                    ) : <p className="mt-3 text-sm text-slate-500">No docs linked.</p>}
+                  </article>
+
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Additional Info</h3>
+                    <div className="mt-3 space-y-2 text-sm text-slate-700">
+                      <p><span className="font-semibold text-slate-900">Source Primary:</span> {selectedHorse.source_primary}</p>
+                      <p><span className="font-semibold text-slate-900">Last Verified:</span> {selectedHorse.source_last_verified_at}</p>
+                      <p><span className="font-semibold text-slate-900">Source Notes:</span> {selectedHorse.source_notes}</p>
+                      <p><span className="font-semibold text-slate-900">Intake Records:</span> {selectedHorseIntake.length}</p>
+                      {selectedHorseIntake.map((row) => (
+                        <p key={row.intake_id} className="text-xs text-slate-500">{row.intake_id} - {row.parse_status}</p>
+                      ))}
+                    </div>
+                  </article>
                 </section>
               ) : (
                 <div className="surface-card rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -3886,7 +3918,7 @@ const App: React.FC = () => {
                         <div className="flex items-center justify-between gap-2">
                           <button
                             type="button"
-                            onClick={() => setExpandedTrainerId((prev) => (prev === trainer.trainer_id ? null : trainer.trainer_id))}
+                            onClick={() => { window.location.hash = `#/trainer/${encodeURIComponent(trainer.trainer_id)}`; }}
                             className="text-left text-2xl font-semibold tracking-tight text-slate-900 hover:underline"
                           >
                             {trainer.trainer_name}
@@ -3994,6 +4026,86 @@ const App: React.FC = () => {
               </section>
             ) : null}
 
+
+            {route === 'trainer' ? (
+              selectedTrainer ? (
+                <section className="space-y-6">
+                  <div>
+                    <a href="#/trainers" className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">Back to Trainers</a>
+                  </div>
+
+                  <article className="surface-card overflow-hidden rounded-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-[340px_1fr]">
+                      <img src={trainerImageSrc(selectedTrainer)} alt={selectedTrainer.trainer_name} className="h-full w-full object-cover" />
+                      <div className="p-5">
+                        <p className="text-3xl font-semibold tracking-tight text-slate-900">{selectedTrainer.trainer_name}</p>
+                        <p className="mt-1 text-sm text-slate-500">{selectedTrainer.trainer_id} - {selectedTrainer.profile_status}</p>
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Stable: {selectedTrainer.stable_name}</span>
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedTrainerHorses.length} horses</span>
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedTrainerLeases.length} leases</span>
+                        </div>
+                        {selectedTrainer.website && selectedTrainer.website !== '#' ? (
+                          <div className="mt-4">
+                            <a href={selectedTrainer.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Website <ExternalLink size={11} /></a>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+
+                  <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Trainer Details</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Stable:</span> {selectedTrainer.stable_name}</p>
+                        <p><span className="font-semibold text-slate-900">Contact Person:</span> {selectedTrainer.contact_name}</p>
+                        <p><span className="font-semibold text-slate-900">Phone:</span> {selectedTrainer.phone}</p>
+                        <p><span className="font-semibold text-slate-900">Email:</span> {selectedTrainer.email}</p>
+                        <p><span className="font-semibold text-slate-900">Website:</span> {selectedTrainer.website && selectedTrainer.website !== '#' ? <a href={selectedTrainer.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{selectedTrainer.website}</a> : 'Not set'}</p>
+                      </div>
+                    </article>
+
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Additional Info</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Linked Documents:</span> {selectedTrainerDocs.length}</p>
+                        <p><span className="font-semibold text-slate-900">Notes:</span> {selectedTrainer.notes || 'No internal notes recorded.'}</p>
+                      </div>
+                    </article>
+                  </section>
+
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Associated Horses</h3>
+                    {selectedTrainerHorses.length ? (
+                      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <th className="px-3 py-2 font-semibold">Horse</th>
+                              <th className="px-3 py-2 font-semibold">Status</th>
+                              <th className="px-3 py-2 font-semibold">Owner</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedTrainerHorses.map((horse) => (
+                              <tr key={horse.horse_id} className="border-t border-slate-100 text-slate-700">
+                                <td className="px-3 py-2"><a href={`#/horse/${encodeURIComponent(horse.horse_id)}`} className="font-semibold text-blue-700 hover:underline">{horse.horse_name}</a></td>
+                                <td className="px-3 py-2">{horse.horse_status} - {horse.identity_status}</td>
+                                <td className="px-3 py-2">{ownerById.get(horse.owner_id)?.owner_name ?? 'Unknown'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="mt-3 text-sm text-slate-500">No horses linked to this trainer.</p>}
+                  </article>
+                </section>
+              ) : (
+                <div className="surface-card rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Trainer profile not found in SSOT snapshot.</div>
+              )
+            ) : null}
+
             {route === 'owners' ? (
               <section className="space-y-4">
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -4006,7 +4118,7 @@ const App: React.FC = () => {
                         <div className="flex items-center justify-between gap-2">
                           <button
                             type="button"
-                            onClick={() => setExpandedOwnerId((prev) => (prev === owner.owner_id ? null : owner.owner_id))}
+                            onClick={() => { window.location.hash = `#/owner/${encodeURIComponent(owner.owner_id)}`; }}
                             className="text-left text-2xl font-semibold tracking-tight text-slate-900 hover:underline"
                           >
                             {owner.owner_name}
@@ -4115,6 +4227,86 @@ const App: React.FC = () => {
               </section>
             ) : null}
 
+
+            {route === 'owner' ? (
+              selectedOwner ? (
+                <section className="space-y-6">
+                  <div>
+                    <a href="#/owners" className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">Back to Owners</a>
+                  </div>
+
+                  <article className="surface-card overflow-hidden rounded-xl">
+                    <div className="grid grid-cols-1 md:grid-cols-[340px_1fr]">
+                      <img src={ownerImageSrc(selectedOwner)} alt={selectedOwner.owner_name} className="h-full w-full object-cover" />
+                      <div className="p-5">
+                        <p className="text-3xl font-semibold tracking-tight text-slate-900">{selectedOwner.owner_name}</p>
+                        <p className="mt-1 text-sm text-slate-500">{selectedOwner.owner_id} - {selectedOwner.profile_status}</p>
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">Type: {selectedOwner.entity_type}</span>
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedOwnerHorses.length} horses</span>
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedOwnerLeases.length} leases</span>
+                        </div>
+                        {selectedOwner.website && selectedOwner.website !== '#' ? (
+                          <div className="mt-4">
+                            <a href={selectedOwner.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Website <ExternalLink size={11} /></a>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+
+                  <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Owner Details</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Entity Type:</span> {selectedOwner.entity_type}</p>
+                        <p><span className="font-semibold text-slate-900">Contact Person:</span> {selectedOwner.contact_name}</p>
+                        <p><span className="font-semibold text-slate-900">Phone:</span> {selectedOwner.phone}</p>
+                        <p><span className="font-semibold text-slate-900">Email:</span> {selectedOwner.email}</p>
+                        <p><span className="font-semibold text-slate-900">Website:</span> {selectedOwner.website && selectedOwner.website !== '#' ? <a href={selectedOwner.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{selectedOwner.website}</a> : 'Not set'}</p>
+                      </div>
+                    </article>
+
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Additional Info</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Linked Documents:</span> {selectedOwnerDocs.length}</p>
+                        <p><span className="font-semibold text-slate-900">Notes:</span> {selectedOwner.notes || 'No internal notes recorded.'}</p>
+                      </div>
+                    </article>
+                  </section>
+
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Associated Horses</h3>
+                    {selectedOwnerHorses.length ? (
+                      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <th className="px-3 py-2 font-semibold">Horse</th>
+                              <th className="px-3 py-2 font-semibold">Status</th>
+                              <th className="px-3 py-2 font-semibold">Trainer / Stable</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedOwnerHorses.map((horse) => (
+                              <tr key={horse.horse_id} className="border-t border-slate-100 text-slate-700">
+                                <td className="px-3 py-2"><a href={`#/horse/${encodeURIComponent(horse.horse_id)}`} className="font-semibold text-blue-700 hover:underline">{horse.horse_name}</a></td>
+                                <td className="px-3 py-2">{horse.horse_status} - {horse.identity_status}</td>
+                                <td className="px-3 py-2">{trainerById.get(horse.trainer_id)?.stable_name ?? trainerById.get(horse.trainer_id)?.trainer_name ?? 'Unknown'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="mt-3 text-sm text-slate-500">No horses linked to this owner.</p>}
+                  </article>
+                </section>
+              ) : (
+                <div className="surface-card rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Owner profile not found in SSOT snapshot.</div>
+              )
+            ) : null}
+
             {route === 'governingBodies' ? (
               <section className="space-y-4">
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -4123,7 +4315,7 @@ const App: React.FC = () => {
                       <div className="flex items-center justify-between gap-2">
                         <button
                           type="button"
-                          onClick={() => setGoverningExpandedCode((prev) => (prev === body.governing_body_code ? null : body.governing_body_code))}
+                          onClick={() => { window.location.hash = `#/governing-body/${encodeURIComponent(body.governing_body_code)}`; }}
                           className="text-left text-xl font-semibold tracking-tight text-slate-900 hover:underline"
                         >
                           {body.governing_body_name}
@@ -4214,366 +4406,113 @@ const App: React.FC = () => {
               </section>
             ) : null}
 
-            {route === 'leases' ? (
-              <article className="surface-card rounded-xl">
-                <div className="border-b border-slate-200 px-5 py-4">
-                  <h3 className="text-base font-semibold text-slate-900">Lease Registry</h3>
-                  <p className="mt-1 text-sm text-slate-500">Click horse names for live pages</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(['active', 'proposed', 'draft', 'completed'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => {
-                          setLeaseTab(tab);
-                          setLeaseStatusFilter(tab);
-                        }}
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${leaseStatusFilter !== 'all' && leaseTab === tab ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600'}`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
+            {route === 'governingBody' ? (
+              selectedGoverningBody ? (
+                <section className="space-y-6">
+                  <div>
+                    <a href="#/governing-bodies" className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">Back to Governing Bodies</a>
                   </div>
-                  {(leaseHorseFilter !== 'all' || leaseStatusFilter !== 'all') ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLeaseHorseFilter('all');
-                        setLeaseStatusFilter('all');
-                        setShowLeaseHorseFilter(false);
-                        setShowLeaseStatusFilter(false);
-                      }}
-                      className="mt-2 text-xs font-semibold text-blue-700 hover:underline"
-                    >
-                      Clear filters
-                    </button>
-                  ) : null}
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="bg-slate-50 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
-                        <th className="px-5 py-3 font-semibold">Lease</th>
-                        <th className="relative px-5 py-3 font-semibold">
-                          <button type="button" onClick={() => { setShowLeaseHorseFilter((prev) => !prev); setShowLeaseStatusFilter(false); }} className="inline-flex items-center gap-1">
-                            Horse
-                            {leaseHorseFilter !== 'all' ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
-                          </button>
-                          {showLeaseHorseFilter ? (
-                            <div className="absolute left-5 top-11 z-20 min-w-[220px] rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
-                              <button type="button" onClick={() => { setLeaseHorseFilter('all'); setShowLeaseHorseFilter(false); }} className="block w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100">All Horses</button>
-                              {leaseHorseOptions.map((horse) => (
-                                <button key={horse.id} type="button" onClick={() => { setLeaseHorseFilter(horse.id); setShowLeaseHorseFilter(false); }} className="block w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100">{horse.name}</button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </th>
-                        <th className="px-5 py-3 font-semibold">Performance</th>
-                        <th className="px-5 py-3 font-semibold">Token Price</th>
-                        <th className="relative px-5 py-3 font-semibold">
-                          <button type="button" onClick={() => { setShowLeaseStatusFilter((prev) => !prev); setShowLeaseHorseFilter(false); }} className="inline-flex items-center gap-1">
-                            Status
-                            {leaseStatusFilter !== 'all' ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
-                          </button>
-                          {showLeaseStatusFilter ? (
-                            <div className="absolute left-5 top-11 z-20 min-w-[180px] rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
-                              <button type="button" onClick={() => { setLeaseStatusFilter('all'); setShowLeaseStatusFilter(false); }} className="block w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100">All</button>
-                              {(['active', 'proposed', 'draft', 'completed'] as const).map((status) => (
-                                <button key={status} type="button" onClick={() => { setLeaseStatusFilter(status); setLeaseTab(status); setShowLeaseStatusFilter(false); }} className="block w-full rounded-md px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100">{status}</button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {filteredLeases.map((lease) => {
-                        const horse = horseById.get(lease.horse_id);
-                        return (
-                          <tr key={lease.lease_id} className="border-t border-slate-100 hover:bg-slate-50/70">
-                            <td className="px-5 py-3 font-medium text-slate-900">{lease.lease_id}</td>
-                            <td className="px-5 py-3">
-                              {horse ? <a href={`#/horse/${encodeURIComponent(horse.horse_id)}`} className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline">{horse.horse_name}</a> : <span className="text-slate-700">{lease.horse_id}</span>}
-                            </td>
-                            <td className="px-5 py-3">
-                              {horse?.performance_profile_url ? <a href={horse.performance_profile_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:text-blue-800 hover:underline">Open performance</a> : <span className="text-slate-500">n/a</span>}
-                            </td>
-                            <td className="px-5 py-3 font-medium text-slate-700">{formatNzd(lease.token_price_nzd)}</td>
-                            <td className="px-5 py-3"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${leaseStatusBadgeClass(lease.lease_status)}`}>{lease.lease_status}</span></td>
-                          </tr>
-                        );
-                      })}
-                      <tr className="border-t border-slate-100">
-                        <td colSpan={5} className="px-5 py-4">
-                          <button
-                            type="button"
-                            onClick={openHltWizard}
-                            className="group flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            <PlusCircle size={24} />
-                            <div className="text-left">
-                              <p className="text-sm font-semibold">Create New HLT</p>
-                              <p className="text-xs text-slate-500 group-hover:text-blue-700">Generate a new Horse Lease Token issuance</p>
-                            </div>
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </article>
-            ) : null}
 
-            {route === 'documentsTemplates' ? (
-              <article className="surface-card rounded-xl p-5">
-                <div className="flex items-center gap-2">
-                  <FileText size={16} className="text-blue-600" />
-                  <h3 className="text-base font-semibold text-slate-900">Templates</h3>
-                </div>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                  {['PDS', 'Syndicate Agreement', 'VARA Whitepaper (Horse Lease Reward)', 'HLT Issuance Termsheet'].map((name) => (
-                    <li key={name} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">{name}</li>
-                  ))}
-                </ul>
-              </article>
-            ) : null}
-
-            {route === 'documentsGenerated' ? (
-              <article className="surface-card rounded-xl p-5">
-                <div className="flex items-center gap-2">
-                  <Activity size={16} className="text-blue-600" />
-                  <h3 className="text-base font-semibold text-slate-900">Generated Documents</h3>
-                </div>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                  {(seed?.documents ?? []).map((doc) => (
-                    <li key={doc.document_id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                      <p className="truncate font-medium text-slate-800">{doc.document_id} • {doc.source_reference}</p>
-                      <p className="mt-1 text-xs text-slate-600">{doc.document_type} • {doc.document_date} • {horseById.get(doc.horse_id)?.horse_name ?? doc.horse_id}</p>
-                      <p className="mt-1 text-xs font-semibold text-emerald-700">{doc.notes || 'Generated'}</p>
-                      {docWebHref(doc.file_path) ? (
-                        <a href={docWebHref(doc.file_path) ?? '#'} target="_blank" rel="noreferrer" className="mt-1 block truncate text-xs text-blue-700 hover:underline">{doc.file_path}</a>
-                      ) : (
-                        <p className="mt-1 truncate text-xs text-slate-500">{doc.file_path}</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ) : null}
-
-            {route === 'complianceRules' ? (
-              <article className="surface-card rounded-xl p-5">
-                <h3 className="text-base font-semibold text-slate-900">Rules of Racing</h3>
-                <p className="mt-2 text-sm text-slate-600">Compliance reference space for racing rules, internal interpretations, and applied checks.</p>
-              </article>
-            ) : null}
-
-            {route === 'complianceSyndication' ? (
-              <article className="surface-card rounded-xl p-5">
-                <h3 className="text-base font-semibold text-slate-900">Syndication Rules</h3>
-                <p className="mt-2 text-sm text-slate-600">Compliance reference space for syndication and offer rules used by leasing workflows.</p>
-              </article>
-            ) : null}
-
-            {route === 'complianceSsot' ? (
-              <article className="surface-card rounded-xl p-5">
-                <h3 className="text-base font-semibold text-slate-900">SSOT Profiles (Audit Trail)</h3>
-                <p className="mt-2 text-sm text-slate-600">Audit and change log view for profile lifecycle and verification events.</p>
-              </article>
-            ) : null}
-
-            {route === 'complianceArchive' ? (
-              <article className="surface-card rounded-xl p-5">
-                <h3 className="text-base font-semibold text-slate-900">Archived Profiles</h3>
-                <p className="mt-2 text-sm text-slate-600">Session archive for all repository records removed during this session.</p>
-                <div className="mt-4 space-y-2">
-                  {archivedRecords.length ? archivedRecords.map((record) => (
-                    <div key={`${record.kind}-${record.id}-${record.archived_at}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <p className="font-semibold text-slate-900">{record.name} ({record.id})</p>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">{record.kind}</p>
-                      <p className="text-xs text-slate-500">Archived: {record.archived_at}</p>
-                      <p className="text-xs text-slate-500">{record.details}</p>
+                  <article className="surface-card rounded-xl p-5">
+                    <p className="text-3xl font-semibold tracking-tight text-slate-900">{selectedGoverningBody.governing_body_name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{selectedGoverningBody.governing_body_code} - {selectedGoverningBody.status}</p>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedGoverningHorses.length} horses</span>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedGoverningLeases.length} leases</span>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedGoverningDocs.length} docs</span>
                     </div>
-                  )) : <p className="text-sm text-slate-500">No archived profiles yet.</p>}
-                </div>
-              </article>
-            ) : null}
-
-            {route === 'contentStudio' ? (
-              <section className="space-y-4">
-                <article className="surface-card rounded-xl p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-semibold text-slate-900">Next Up</h3>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mock race planner</p>
-                  </div>
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {contentStudioNextUp.map((item) => (
-                      <div key={`${item.horseId}-${item.dateLabel}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{item.horseId} • {item.horseName}</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-900">{item.raceName}</p>
-                        <p className="mt-2 text-sm text-slate-700">{item.dateLabel} • {item.location}</p>
-                        <p className="text-xs text-slate-500">Distance: {item.distance}</p>
+                    {selectedGoverningBody.website && selectedGoverningBody.website !== '#' ? (
+                      <div className="mt-4">
+                        <a href={selectedGoverningBody.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Website <ExternalLink size={11} /></a>
                       </div>
-                    ))}
-                  </div>
-                </article>
+                    ) : null}
+                  </article>
 
-                <article className="surface-card rounded-xl p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-semibold text-slate-900">Recent Updates</h3>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Publishing target: Evolution Platform</p>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">/home/evo/projects/Evolution_Platform/public/updates</p>
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">First Gear HTML Updates</p>
-                      <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                        {contentStudioRecentHtmlUpdates.map((item) => (
-                          <li key={item.fileName} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-                            <p className="font-medium text-slate-900">{item.fileName}</p>
-                            <p className="text-xs text-slate-500">{item.horseName}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prudentia Videos</p>
-                      <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                        {contentStudioPrudentiaVideos.map((item) => (
-                          <li key={item.fileName} className="rounded-md border border-slate-200 bg-white px-3 py-2">
-                            <p className="font-medium text-slate-900">{item.fileName}</p>
-                            <p className="text-xs text-slate-500">{item.horseName}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </article>
+                  <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Governing Body Details</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Code:</span> {selectedGoverningBody.governing_body_code}</p>
+                        <p><span className="font-semibold text-slate-900">Status:</span> {selectedGoverningBody.status}</p>
+                        <p><span className="font-semibold text-slate-900">Website:</span> {selectedGoverningBody.website && selectedGoverningBody.website !== '#' ? <a href={selectedGoverningBody.website} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{selectedGoverningBody.website}</a> : 'Not set'}</p>
+                        {selectedGoverningBody.governing_body_code === 'NZTR' ? (
+                          <p><span className="font-semibold text-slate-900">Compliance:</span> <a href="#/compliance/jurisdiction/new-zealand" className="text-blue-700 hover:underline">New Zealand compliance references</a></p>
+                        ) : null}
+                      </div>
+                    </article>
 
-                <article className="surface-card rounded-xl p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-base font-semibold text-slate-900">Create Investor Update</h3>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Builder Entry Point</p>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">Choose a template type to begin drafting investor communications for publication.</p>
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">Standard Investor Update</p>
-                      <p className="mt-1 text-xs text-slate-500">Race recap, training notes, and immediate horse-level updates.</p>
-                      <button type="button" onClick={() => openInvestorUpdateBuilder('standard')} className="mt-3 inline-flex rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Create Draft</button>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">Quarterly Investor Update</p>
-                      <p className="mt-1 text-xs text-slate-500">Quarterly performance summary, capital narrative, and outlook.</p>
-                      <button type="button" onClick={() => openInvestorUpdateBuilder('quarterly')} className="mt-3 inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Create Quarterly Draft</button>
-                    </div>
-                  </div>
-                  {showInvestorUpdateBuilder ? (
-                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <label className="block text-sm">
-                          <span className="mb-1 block font-medium text-slate-700">Template</span>
-                          <select
-                            value={investorUpdateDraft.template}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, template: event.target.value as InvestorUpdateType }))}
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          >
-                            <option value="standard">Standard Investor Update</option>
-                            <option value="quarterly">Quarterly Investor Update</option>
-                          </select>
-                        </label>
-                        <label className="block text-sm">
-                          <span className="mb-1 block font-medium text-slate-700">Horse</span>
-                          <select
-                            value={investorUpdateDraft.horseId}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, horseId: event.target.value }))}
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          >
-                            {allHorses.map((horse) => (
-                              <option key={horse.horse_id} value={horse.horse_id}>{horse.horse_name} ({horse.horse_id})</option>
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Additional Info</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Notes:</span> {selectedGoverningBody.notes || 'No internal notes recorded.'}</p>
+                      </div>
+                    </article>
+                  </section>
+
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Associated Horses</h3>
+                    {selectedGoverningHorses.length ? (
+                      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                              <th className="px-3 py-2 font-semibold">Horse</th>
+                              <th className="px-3 py-2 font-semibold">Trainer / Stable</th>
+                              <th className="px-3 py-2 font-semibold">Owner</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedGoverningHorses.map((horse) => (
+                              <tr key={horse.horse_id} className="border-t border-slate-100 text-slate-700">
+                                <td className="px-3 py-2"><a href={`#/horse/${encodeURIComponent(horse.horse_id)}`} className="font-semibold text-blue-700 hover:underline">{horse.horse_name}</a></td>
+                                <td className="px-3 py-2">{trainerById.get(horse.trainer_id)?.stable_name ?? trainerById.get(horse.trainer_id)?.trainer_name ?? 'Unknown'}</td>
+                                <td className="px-3 py-2">{ownerById.get(horse.owner_id)?.owner_name ?? 'Unknown'}</td>
+                              </tr>
                             ))}
-                          </select>
-                        </label>
-                        <label className="block text-sm md:col-span-2">
-                          <span className="mb-1 block font-medium text-slate-700">Headline</span>
-                          <input
-                            value={investorUpdateDraft.headline}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, headline: event.target.value }))}
-                            placeholder="Investor update headline"
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          />
-                        </label>
-                        <label className="block text-sm md:col-span-2">
-                          <span className="mb-1 block font-medium text-slate-700">Summary</span>
-                          <textarea
-                            rows={2}
-                            value={investorUpdateDraft.summary}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, summary: event.target.value }))}
-                            placeholder="One paragraph summary for investors"
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          />
-                        </label>
-                        <label className="block text-sm md:col-span-2">
-                          <span className="mb-1 block font-medium text-slate-700">Body</span>
-                          <textarea
-                            rows={8}
-                            value={investorUpdateDraft.body}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, body: event.target.value }))}
-                            placeholder="Write the full investor update body..."
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          />
-                        </label>
-                        <label className="block text-sm">
-                          <span className="mb-1 block font-medium text-slate-700">As Of Date</span>
-                          <input
-                            type="date"
-                            value={investorUpdateDraft.asOfDate}
-                            onChange={(event) => setInvestorUpdateDraft((prev) => ({ ...prev, asOfDate: event.target.value }))}
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                          />
-                        </label>
-                        <div className="block text-sm">
-                          <span className="mb-1 block font-medium text-slate-700">Download Format</span>
-                          <div className="flex gap-2">
-                            <select
-                              value={downloadFormat}
-                              onChange={(event) => setDownloadFormat(event.target.value as 'html' | 'docx' | 'pdf')}
-                              className="min-w-[130px] rounded-md border border-slate-300 px-3 py-2 text-sm"
-                            >
-                              <option value="html">HTML</option>
-                              <option value="docx">DOCX</option>
-                              <option value="pdf">PDF</option>
-                            </select>
-                            <button type="button" onClick={() => void downloadInvestorUpdate()} className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">Download</button>
-                          </div>
-                        </div>
+                          </tbody>
+                        </table>
                       </div>
-                      {investorUpdateError ? <p className="mt-3 text-xs font-medium text-rose-700">{investorUpdateError}</p> : null}
-                      {investorUpdateNotice ? <p className="mt-3 text-xs font-medium text-emerald-700">{investorUpdateNotice}</p> : null}
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <button type="button" disabled={isSavingInvestorUpdate} onClick={() => void saveInvestorUpdateLocally()} className="inline-flex rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
-                          {isSavingInvestorUpdate ? 'Saving...' : 'Save Locally (HTML)'}
-                        </button>
-                        <button type="button" onClick={() => setShowInvestorUpdateBuilder(false)} className="inline-flex rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">Close Builder</button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {savedInvestorUpdates.length ? (
-                    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved This Session</p>
-                      <ul className="mt-2 space-y-2">
-                        {savedInvestorUpdates.map((item) => (
-                          <li key={`${item.fileName}-${item.savedAt}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                            <p className="text-sm font-medium text-slate-900">{item.fileName}</p>
-                            <p className="text-xs text-slate-500">{item.horseName}</p>
-                            <p className="truncate text-[11px] text-slate-500">{item.filePath}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </article>
-              </section>
+                    ) : <p className="mt-3 text-sm text-slate-500">No horses linked to this governing body.</p>}
+                  </article>
+                </section>
+              ) : (
+                <div className="surface-card rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Governing body profile not found in SSOT snapshot.</div>
+              )
+            ) : null}
+
+            {route === 'leases' ? (
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <LeaseRoute
+                  filteredLeases={filteredLeases}
+                  horseById={horseById}
+                  leaseTab={leaseTab}
+                  leaseHorseFilter={leaseHorseFilter}
+                  leaseStatusFilter={leaseStatusFilter}
+                  showLeaseHorseFilter={showLeaseHorseFilter}
+                  showLeaseStatusFilter={showLeaseStatusFilter}
+                  leaseHorseOptions={leaseHorseOptions}
+                  setLeaseTab={setLeaseTab}
+                  setLeaseHorseFilter={setLeaseHorseFilter}
+                  setLeaseStatusFilter={setLeaseStatusFilter}
+                  setShowLeaseHorseFilter={setShowLeaseHorseFilter}
+                  setShowLeaseStatusFilter={setShowLeaseStatusFilter}
+                  formatNzd={formatNzd}
+                  leaseStatusBadgeClass={leaseStatusBadgeClass}
+                  openHltWizard={openHltWizard}
+                />
+              </Suspense>
+            ) : null}
+            {['documentsTemplates', 'documentsGenerated', 'complianceNewZealand', 'complianceDubai', 'complianceSsot', 'complianceArchive'].includes(route) ? (
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <ReferenceRoute
+                  route={route as 'documentsTemplates' | 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive'}
+                  documents={seed?.documents ?? []}
+                  horseById={horseById}
+                  docWebHref={docWebHref}
+                  archivedRecords={archivedRecords}
+                  onRestoreArchivedRecord={restoreArchivedRecord}
+                />
+              </Suspense>
             ) : null}
 
             {showRemovePickerKind ? (
@@ -4581,43 +4520,31 @@ const App: React.FC = () => {
                 <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6">
                   <h3 className="text-lg font-semibold text-slate-900">
                     {showRemovePickerKind === 'horse'
-                      ? 'Select Horse To Remove'
+                      ? 'Select Horse To Archive'
                       : showRemovePickerKind === 'trainer'
-                        ? 'Select Trainer To Remove'
+                        ? 'Select Trainer To Archive'
                         : showRemovePickerKind === 'owner'
-                          ? 'Select Owner To Remove'
-                          : 'Select Governing Body To Remove'}
+                          ? 'Select Owner To Archive'
+                          : 'Select Governing Body To Archive'}
                   </h3>
                   <div className="mt-3 space-y-2">
-                    {showRemovePickerKind === 'horse' && allHorses.length ? allHorses.map((horse) => {
-                      const seeded = seededHorseIds.has(horse.horse_id);
-                      return (
-                        <button key={horse.horse_id} type="button" onClick={() => !seeded && setRemoveCandidateId(horse.horse_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${seeded ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500' : removeCandidateId === horse.horse_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{horse.horse_name} ({horse.horse_id})</button>
-                      );
-                    }) : null}
-                    {showRemovePickerKind === 'trainer' && allTrainers.length ? allTrainers.map((trainer) => {
-                      const seeded = seededTrainerIds.has(trainer.trainer_id);
-                      return (
-                        <button key={trainer.trainer_id} type="button" onClick={() => !seeded && setRemoveCandidateId(trainer.trainer_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${seeded ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500' : removeCandidateId === trainer.trainer_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{trainer.trainer_name} ({trainer.trainer_id})</button>
-                      );
-                    }) : null}
-                    {showRemovePickerKind === 'owner' && allOwners.length ? allOwners.map((owner) => {
-                      const seeded = seededOwnerIds.has(owner.owner_id);
-                      return (
-                        <button key={owner.owner_id} type="button" onClick={() => !seeded && setRemoveCandidateId(owner.owner_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${seeded ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500' : removeCandidateId === owner.owner_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{owner.owner_name} ({owner.owner_id})</button>
-                      );
-                    }) : null}
-                    {showRemovePickerKind === 'governing' && allGoverningBodies.length ? allGoverningBodies.map((body) => {
-                      const seeded = seededGoverningCodes.has(body.governing_body_code);
-                      return (
-                        <button key={body.governing_body_code} type="button" onClick={() => !seeded && setRemoveCandidateId(body.governing_body_code)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${seeded ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500' : removeCandidateId === body.governing_body_code ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{body.governing_body_name} ({body.governing_body_code})</button>
-                      );
-                    }) : null}
-                    {(showRemovePickerKind === 'horse' && !allHorses.length)
-                    || (showRemovePickerKind === 'trainer' && !allTrainers.length)
-                    || (showRemovePickerKind === 'owner' && !allOwners.length)
-                    || (showRemovePickerKind === 'governing' && !allGoverningBodies.length) ? (
-                      <p className="text-sm text-slate-500">No records available.</p>
+                    {showRemovePickerKind === 'horse' && removableHorses.length ? removableHorses.map((horse) => (
+                      <button key={horse.horse_id} type="button" onClick={() => setRemoveCandidateId(horse.horse_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${removeCandidateId === horse.horse_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{horse.horse_name} ({horse.horse_id})</button>
+                    )) : null}
+                    {showRemovePickerKind === 'trainer' && removableTrainers.length ? removableTrainers.map((trainer) => (
+                      <button key={trainer.trainer_id} type="button" onClick={() => setRemoveCandidateId(trainer.trainer_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${removeCandidateId === trainer.trainer_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{trainer.trainer_name} ({trainer.trainer_id})</button>
+                    )) : null}
+                    {showRemovePickerKind === 'owner' && removableOwners.length ? removableOwners.map((owner) => (
+                      <button key={owner.owner_id} type="button" onClick={() => setRemoveCandidateId(owner.owner_id)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${removeCandidateId === owner.owner_id ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{owner.owner_name} ({owner.owner_id})</button>
+                    )) : null}
+                    {showRemovePickerKind === 'governing' && removableGoverningBodies.length ? removableGoverningBodies.map((body) => (
+                      <button key={body.governing_body_code} type="button" onClick={() => setRemoveCandidateId(body.governing_body_code)} className={`block w-full rounded-md border px-3 py-2 text-left text-sm ${removeCandidateId === body.governing_body_code ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{body.governing_body_name} ({body.governing_body_code})</button>
+                    )) : null}
+                    {(showRemovePickerKind === 'horse' && !removableHorses.length)
+                    || (showRemovePickerKind === 'trainer' && !removableTrainers.length)
+                    || (showRemovePickerKind === 'owner' && !removableOwners.length)
+                    || (showRemovePickerKind === 'governing' && !removableGoverningBodies.length) ? (
+                      <p className="text-sm text-slate-500">No removable custom records are available. Seed records stay protected in the live registry.</p>
                     ) : null}
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-2">
@@ -4643,8 +4570,8 @@ const App: React.FC = () => {
             {removalTarget ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
                 <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6">
-                  <h3 className="text-lg font-semibold text-slate-900">Are you sure you want to archive this {removalTarget.kind}?</h3>
-                  <p className="mt-2 text-sm text-slate-600">This will archive {removalTarget.name} ({removalTarget.id}) in this session.</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Archive this {removalTarget.kind} from the live registry?</h3>
+                  <p className="mt-2 text-sm text-slate-600">This will remove {removalTarget.name} ({removalTarget.id}) from the live registry, keep its record in Archive, and allow it to be restored later.</p>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button type="button" onClick={() => setRemovalTarget(null)} className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">No</button>
                     <button

@@ -1,3 +1,0 @@
-lease_id,horse_id,start_date,end_date,duration_months,percent_leased,token_count,percent_per_token,monthly_lease_price_nzd,annual_lease_price_nzd,price_per_one_percent_nzd,token_price_nzd,total_issuance_value_nzd,investor_share_percent,owner_share_percent,platform_fee_percent,lease_status,created_at,notes
-LSE-001,HRS-001,2025-07-01,2026-06-30,12,10,20,0.5,40,480,480,240,4800,80,20,,active,2025-07-01,"Derived from First Gear PDS/SA and SSOT math."
-LSE-002,HRS-002,2026-01-01,2027-06-30,18,5,20,0.25,65,780,1170,292.5,5850,75,25,,active,2026-01-01,"Derived from Prudentia PDS and HLT issuance details."
