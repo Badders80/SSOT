@@ -12,6 +12,27 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Collaborator-Facing Repo Surface
+
+The main repo page should stay focused on the active build surface:
+
+- `README.md`
+- `package.json`
+- `package-lock.json`
+- `vite.config.ts`
+- `tsconfig.json`
+- `index.html`
+- `index.tsx`
+- `index.css`
+- `App.tsx`
+- `src/`
+- `public/`
+- `intake/`
+- `scripts/`
+- `docs/`
+
+Historical specs, archived builders, generated output, and Windows metadata files should stay out of the live repo surface.
+
 ## Working Docs
 
 - `docs/architecture/CURRENT_BUILD_MAP_2026-03-11.md`: live rule map for the current build.
@@ -70,3 +91,6 @@ Override with env var:
 - Replace temporary `URL.createObjectURL(...)` image handling with durable saved asset paths for horses, trainers, and owners.
 - Normalize the remaining legacy `evo` wrapper and helper scripts that still point at pre-workspace `/home/evo/_scripts` paths.
 - Before external review, do one smoke pass in a fresh browser profile so localStorage does not carry over old demo edits.
+
+
+
