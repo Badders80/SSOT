@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { buildHltDocxBlob, buildInvestorUpdateDocxBlob, downloadHltPdfFromHtml, downloadInvestorUpdatePdf } from './src/lib/lazyExports';
+import { loadSsotSeed } from './src/lib/ssot/seed-loader';
 
 const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
 const LeaseRoute = lazy(() => import('./src/routes/LeaseRoute'));
@@ -2077,12 +2078,7 @@ const App: React.FC = () => {
 
       let latestSeed: SeedPayload | null = null;
       try {
-        const res = await fetch('/intake/v0.1/seed.json', { cache: 'no-store' });
-        if (!res.ok) {
-          throw new Error(`Failed to load seed.json (${res.status})`);
-        }
-        const json = await res.json();
-        latestSeed = json as SeedPayload;
+        latestSeed = await loadSsotSeed(true);
       } catch (err) {
         if (!persisted?.seed) {
           setError(err instanceof Error ? err.message : 'Failed to load data');
