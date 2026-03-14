@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "classification": "REUSABLE",
+    "description": "Trainer profile for Wexford Stables \u2014 reused across all horses trained at this facility.",
+    "last_updated": "2026-03-14",
+    "sources": [
+      "https://www.wexfordstables.co.nz",
+      "https://loveracing.nz"
+    ]
+  },
+  "trainer_id": "TRN-001",
+  "trainer_name": "Lance O'Sullivan & Andrew Scott",
+  "stable_name": "Wexford Stables",
+  "contact_name": "Andrew Scott",
+  "location": "Matamata, New Zealand",
+  "full_address": "Wexford Stables, Matamata, Waikato, New Zealand",
+  "bio": "Wexford Stables is one of New Zealand's most iconic racing operations, established in 1961 by Hall of Fame trainer Dave O'Sullivan. Now led by Lance O'Sullivan ONZM and Andrew Scott, the stable continues a legacy of excellence from its world-class training facility in Matamata, the heartland of New Zealand thoroughbred racing. Lance O'Sullivan, a celebrated jockey-turned-trainer, has been a dominant force in New Zealand racing for decades, while Andrew Scott brings meticulous attention to detail and a hands-on training approach. Together, they have produced a consistent stream of Group race winners, including recent stars such as Gr.1 New Zealand Oaks winner Ohope Wins, Gr.1 Livamol Classic winner Waitak, and Gr.2 Manawatu Challenge winner Lux Libertas. Their proven record across all levels of racing, from maidens to elite-level feature events, makes Wexford Stables a trusted home for Evolution Stables' thoroughbreds.",
+  "notable_wins": [
+    "Gr.1 New Zealand Oaks (Ohope Wins, 2026)",
+    "Gr.1 Livamol Classic (Waitak, 2025)",
+    "Gr.2 Manawatu Challenge (Lux Libertas, 2025)",
+    "Gr.2 David & Karyn Ellis Classic (Ohope Wins, 2026)",
+    "Gr.2 Sir Patrick Hogan Stakes (Ohope Wins, 2026)"
+  ],
+  "website": "https://www.wexfordstables.co.nz",
+  "social_links": {
+    "x_url": "https://x.com/WexfordStables",
+    "instagram_url": "https://instagram.com/wexford_stables",
+    "facebook_url": "https://facebook.com/WexfordStables"
+  }
+}

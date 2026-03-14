@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "classification": "REUSABLE",
+    "description": "Trainer profile for Stephen Gray Racing \u2014 reused across all horses trained at Copper Belt Lodge.",
+    "last_updated": "2026-03-14",
+    "sources": [
+      "https://www.stephengrayracing.com",
+      "https://loveracing.nz"
+    ]
+  },
+  "trainer_id": "TRN-002",
+  "trainer_name": "Stephen Gray",
+  "stable_name": "Copper Belt Lodge",
+  "contact_name": "Stephen Gray",
+  "location": "Cambridge, New Zealand",
+  "full_address": "Copper Belt Lodge, Cambridge, Waikato, New Zealand",
+  "bio": "Stephen Gray operates Copper Belt Lodge, a boutique training facility based in Cambridge in the heart of New Zealand's Waikato thoroughbred country. Known for his patient, horse-first approach, Stephen has built a reputation for developing young horses into competitive racetrack performers. His hands-on management style and attention to each horse's individual needs ensure that every thoroughbred in his care receives the time and preparation needed to reach their full potential. With a focus on building long-term racing careers rather than quick results, Stephen Gray Racing provides an ideal environment for Evolution Stables' developing athletes.",
+  "notable_wins": [],
+  "website": "https://www.stephengrayracing.com",
+  "social_links": {
+    "x_url": "https://x.com/copperbelt_stc",
+    "instagram_url": "https://instagram.com/stephengrayracing",
+    "facebook_url": "https://facebook.com/stephengrayracing"
+  }
+}
