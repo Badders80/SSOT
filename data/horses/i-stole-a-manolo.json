@@ -1,11 +1,26 @@
 {
   "_meta": {
-    "description": "SSOT record for I Stole A Manolo \u2014 extends base HorseRecord with listing-doc fields.",
-    "last_updated": "2026-03-14",
+    "description": "SSOT record for I Stole A Manolo — extends base HorseRecord with listing-doc fields.",
+    "last_updated": "2026-03-15",
     "sources": [
       "https://loveracing.nz/Breeding/451442/I-Stole-A-Manolo-NZ-2023.aspx"
     ]
   },
+  "slug": "i-stole-a-manolo",
+  "name": "I Stole A Manolo",
+  "countryCode": "NZ",
+  "foalingDate": "2023-08-30",
+  "sex": "Filly",
+  "colour": "Bay",
+  "sireSlug": "satono-aladdin",
+  "damSlug": "canuhandleajandal",
+  "trainerSlug": "wexford-stables",
+  "microchip": "985125000139219",
+  "lifeNumber": "NZ00451442",
+  "family": "22",
+  "breeder": "Goldeye Trust",
+  "breedingUrl": "https://loveracing.nz/Breeding/451442/I-Stole-A-Manolo-NZ-2023.aspx",
+  "racingRecord": "Early Career / Trialing",
   "identity": {
     "horse_id": "HRS-003",
     "horse_name": "I Stole A Manolo",
@@ -32,6 +47,7 @@
     "start_date": "2026-04-01",
     "end_date": "2027-09-30",
     "duration_months": 18,
+    "leaseDurationMonths": 18,
     "percent_leased": 5,
     "token_count": 20,
     "percent_per_token": 0.25,
@@ -39,13 +55,17 @@
     "total_issuance_value_nzd": 6000,
     "investor_share_percent": 75,
     "owner_share_percent": 25,
+    "location": "Wexford Stables, Matamata, New Zealand",
     "earnings_distribution": "Token holders are entitled to 75% of net prize money earned by the horse during the lease period, distributed pro-rata on a quarterly basis."
   },
   "races": [],
   "narrative": {
-    "tagline": "Bred for Speed, Built to Win",
-    "intro_paragraph": "I Stole A Manolo (NZ): Evolution Stables' next offering on Tokinvest \u2014 a digital syndication platform that allows everyday investors to own a fractional share in a racehorse. Through tokenisation, I Stole A Manolo becomes accessible to a new generation of racing enthusiasts and investors, combining the thrill of the track with the transparency of blockchain technology.",
+    "tagline": "Presence, Balance, and Pedigree",
+    "intro_paragraph": "I Stole A Manolo (NZ): Evolution Stables' next offering on Tokinvest — a digital syndication platform that allows everyday investors to own a fractional share in a racehorse. Through tokenisation, I Stole A Manolo becomes accessible to a new generation of racing enthusiasts and investors, combining the thrill of the track with the transparency of blockchain technology.",
     "about_paragraph": "I Stole A Manolo is a striking bay filly with an imposing physical presence that belies her youth. Currently progressing through her two-year-old education and trial preparation at Wexford Stables in Matamata under the expert guidance of Lance O'Sullivan and Andrew Scott, she has shown encouraging signs of the ability and temperament that her pedigree promises. As a daughter of Gr.1 Yasuda Kinen winner Satono Aladdin and from the commercially proven mare Canuhandleajandal, she carries the genetic hallmarks of both speed and class. Token holders will be entitled to 75% of net prize money earned during the lease period, distributed pro-rata on a quarterly basis.",
-    "current_status": "Current Status: 2YO Education & Trials"
+    "current_status": "Current Status: 2YO Education & Trials",
+    "horse_intro": "I Stole A Manolo (NZ) is a New Zealand-bred two-year-old filly by the Group 1 winning miler Satono Aladdin, trained from Matamata by Lance O'Sullivan and Andrew Scott. Coming from a deep New Zealand maternal line with a pedigree designed for speed and class, she is an exciting addition to the Wexford Stables roster.",
+    "headline": "Presence, Balance, and Pedigree",
+    "body": "I Stole A Manolo (NZ) is a bay filly that possesses real presence and a strong, correct moving action. Born on August 30, 2023, she is a daughter of the sensational sire Satono Aladdin, who has taken the New Zealand breeding scene by storm with his first crops.\n\nShe is out of the Jimmy Choux mare Canuhandleajandal, a family noted for its toughness and performance. Currently in the early stages of her racing education at the world-class Matamata facilities, she is being carefully prepared to follow in the footsteps of Wexford's many Group 1 champions."
   }
 }

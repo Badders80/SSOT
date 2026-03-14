@@ -1,0 +1,26 @@
+{
+  "slug": "tml-x-yearn",
+  "name": "Turn Me Loose x Yearn",
+  "countryCode": "NZ",
+  "foalingDate": "2023-08-17",
+  "sex": "Filly",
+  "colour": "Bay",
+  "sireSlug": "turn-me-loose",
+  "damSlug": "yearn",
+  "trainerSlug": "stephen-gray-racing",
+  "microchip": "",
+  "lifeNumber": "",
+  "family": "",
+  "breeder": "",
+  "breedingUrl": "",
+  "racingRecord": "no historical starts",
+  "narrative": {
+    "horse_intro": "This promising two-year-old filly is a daughter of the triple Group 1 winner Turn Me Loose, out of the high-class Savabeel mare, Yearn. Trained by the internationally experienced Stephen Gray, she represents an exceptional opportunity to invest in a filly with a blue-chip New Zealand pedigree as she begins her journey to the track.",
+    "headline": "Speed, Stamina, and a Pedigree Built to Compete",
+    "body": "Combining the speed of a champion miler with the durability of New Zealand's greatest modern sire line, this filly is built for performance. Currently in her first year of racing preparation, she is undergoing the vital education required to compete at the highest level on the New Zealand turf.\n\nHer pedigree suggests a high ceiling, blending the elite sprinting power of Turn Me Loose with the classic New Zealand \"Savabeel\" strength of her dam, Yearn. This offering provides a rare entry point into a professionally managed racing career from day one."
+  },
+  "offering": {
+    "leaseDurationMonths": 16,
+    "location": "Copper Belt Lodge, Palmerston North, New Zealand"
+  }
+}
