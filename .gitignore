@@ -5,3 +5,4 @@ dist/
 data/generated/investor_updates/
 data/generated/hlt/
 **/*:Zone.Identifier
+output/
