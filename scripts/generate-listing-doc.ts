@@ -13,6 +13,7 @@
  *   output/<horse-slug>-DS-listing.docx
  */
 
+import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -33,7 +34,7 @@ import {
 
 // ─── Paths ────────────────────────────────────────────────────────────────
 
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const OUTPUT_DIR = path.join(ROOT, 'output');
 
@@ -362,7 +363,7 @@ function buildDocument(
         new Paragraph({ spacing: { after: 200 }, children: [new TextRun(n.about_paragraph || missing('narrative.about_paragraph'))] }),
 
         // Block 5: Trainer Profile (REUSABLE)
-        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} Trainer Profile: ${trainer.trainer_name} \u2014 ${trainer.stable_name}` })] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} Trainer Profile: ${trainer.trainer_name} — ${trainer.stable_name}` })] }),
         new Paragraph({ spacing: { after: 200 }, children: [new TextRun(trainer.bio || missing('trainer.bio'))] }),
 
         // SECTION 3: PEDIGREE BLOCK
