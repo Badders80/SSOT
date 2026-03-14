@@ -1,0 +1,26 @@
+{
+  "slug": "defying-gravity",
+  "name": "Defying Gravity",
+  "countryCode": "NZ",
+  "foalingDate": "2023-10-31",
+  "sex": "Filly",
+  "colour": "Grey",
+  "sireSlug": "proisir",
+  "damSlug": "ouzo",
+  "trainerSlug": "wexford-stables",
+  "microchip": "985125000139164",
+  "lifeNumber": "NZ00452686",
+  "family": "22",
+  "breeder": "Goldeye Trust",
+  "breedingUrl": "https://loveracing.nz/Breeding/452686/Defying-Gravity-NZ-2023.aspx",
+  "racingRecord": "Early Career / Trialing",
+  "narrative": {
+    "horse_intro": "Defying Gravity (NZ) is a New Zealand-bred two-year-old filly by the elite sire Proisir, trained from Matamata by Lance O'Sullivan and Andrew Scott. As a young prospect with a classic grey coat and a powerful pedigree, she represents the next wave of talent emerging from the world-class Wexford Stables.",
+    "headline": "A Pedigree Built for the Big Stage",
+    "body": "Defying Gravity (NZ) is a standout grey filly combining the explosive sire power of Proisir with a high-quality New Zealand maternal line. Born on October 31, 2023, she has been selected for her physical presence and athletic potential, mirroring the best traits of her champion sire.\n\nCurrently in the early phases of her racing education under the guidance of Lance O'Sullivan and Andrew Scott, she is being prepared to compete in the prestigious domestic programmes that have defined Wexford Stables' success."
+  },
+  "offering": {
+    "leaseDurationMonths": 16,
+    "location": "Wexford Stables, Matamata, New Zealand"
+  }
+}

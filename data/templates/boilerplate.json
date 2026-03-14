@@ -1,16 +1,24 @@
 {
   "_meta": {
-    "description": "Static boilerplate content for DS listing documents. These sections are identical across ALL horse listings.",
+    "description": "Static boilerplate content for DS listing documents. These sections are identical across all horse listings.",
     "classification": "STATIC",
-    "last_updated": "2026-03-14",
-    "version": "1.0"
+    "last_updated": "2026-03-15",
+    "version": "1.1"
   },
+  "intro_template": "{horseName}: Evolution Stables' next offering on Tokinvest — a digital syndication platform that allows everyday investors to own a fractional share in a racehorse. Through tokenisation, {horseName} becomes accessible to a new generation of racing enthusiasts and investors, combining the thrill of the track with the transparency of blockchain technology.",
   "why_tokenise_heading": "Why Tokenise a Racehorse?",
-  "why_tokenise_body": "Tokinvest brings the excitement of racehorse ownership to everyone. Through tokenisation, investors can own a share of a racehorse, participate in its racing journey, and earn a share of any prize money \u2014 all without the traditional barriers to entry. Each token represents a fractional interest in the horse's lease, giving you a real stake in the action. Whether you're a seasoned racing enthusiast or a first-time investor, Tokinvest makes it simple, transparent, and rewarding.",
-  "intro_template": "{horseName}: Evolution Stables' next offering on Tokinvest \u2014 a digital syndication platform that allows everyday investors to own a fractional share in a racehorse. Through tokenisation, {horseName} becomes accessible to a new generation of racing enthusiasts and investors, combining the thrill of the track with the transparency of blockchain technology.",
+  "why_tokenise_body": "Tokinvest brings the excitement of racehorse ownership to everyone. Through tokenisation, investors can own a share of a racehorse, participate in its racing journey, and earn a share of any prize money — all without the traditional barriers to entry. Each token represents a fractional interest in the horse's lease, giving you a real stake in the action. Whether you're a seasoned racing enthusiast or a first-time investor, Tokinvest makes it simple, transparent, and rewarding.",
+  "why_tokenise_bullets": [
+    "Real-world asset linked to an active racing thoroughbred",
+    "Fractional ownership in the horse's lease rights",
+    "Tradable participation through the Tokinvest platform"
+  ],
   "earnings_language": "Token holders are entitled to 75% of net prize money earned by the horse during the lease period, distributed pro-rata on a quarterly basis.",
+  "earnings_sentence": "Token holders are entitled to 75% of net prize money earned by the horse during the lease period, distributed pro-rata on a quarterly basis.",
   "pedigree_intro": "Built on Pedigree",
   "pedigree_intro_body": "A thoroughbred is only as strong as the bloodlines behind it. {horseName}'s pedigree reflects a deliberate breeding strategy, combining proven sire power with a quality dam family.",
   "asset_type": "Horse",
-  "promoted_default": "Yes"
+  "assettype": "Horse",
+  "promoted_default": "Yes",
+  "promoted": "Yes"
 }
