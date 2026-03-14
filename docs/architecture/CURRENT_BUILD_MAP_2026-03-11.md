@@ -117,7 +117,6 @@ Profile text generation and enrichment are currently mediated through Vite middl
 - `/__glm_profile`
 - `/__groq_profile`
 - `/__anthropic_profile`
-- `/__gemini_profile`
 - `/__url_proxy`
 
 These are local middleware endpoints, not production API routes.

@@ -109,38 +109,43 @@ const ReferenceRoute: React.FC<ReferenceRouteProps> = ({ route, documents, horse
     );
   }
   if (route === 'complianceSsot') {
-    return <article className="surface-card rounded-xl p-5"><h3 className="text-base font-semibold text-slate-900">SSOT Profiles (Audit Trail)</h3><p className="mt-2 text-sm text-slate-600">Audit and change log view for profile lifecycle and verification events.</p></article>;
+    return (
+      <article className="surface-card rounded-xl p-5">
+        <h3 className="text-base font-semibold text-slate-900">Archived SSOT Profiles</h3>
+        <p className="mt-2 text-sm text-slate-600">Profiles removed from the active repository are stored here so horses, trainers, owners, and governing bodies can be restored later.</p>
+        <div className="mt-4 space-y-2">
+          {archivedRecords.length ? archivedRecords.map((record) => (
+            <div key={`${record.kind}-${record.id}-${record.archived_at}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-900">{record.name} ({record.id})</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{record.kind}</p>
+                  <p className="text-xs text-slate-500">Archived: {record.archived_at}</p>
+                  <p className="text-xs text-slate-500">{record.details}</p>
+                  {record.asset_path ? <p className="text-xs text-slate-500">Asset path: {record.asset_path}</p> : null}
+                  {record.image_src ? <p className="truncate text-xs text-slate-500">Image source: {record.image_src}</p> : null}
+                  {!record.record ? <p className="text-xs text-amber-700">Legacy archive metadata only. Restore unavailable.</p> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRestoreArchivedRecord(record)}
+                  disabled={!record.record}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Restore
+                </button>
+              </div>
+            </div>
+          )) : <p className="text-sm text-slate-500">No archived profiles yet.</p>}
+        </div>
+      </article>
+    );
   }
 
   return (
     <article className="surface-card rounded-xl p-5">
-      <h3 className="text-base font-semibold text-slate-900">Archived Profiles</h3>
-      <p className="mt-2 text-sm text-slate-600">Records removed from the live registry are stored here with their archived payload so they can be restored.</p>
-      <div className="mt-4 space-y-2">
-        {archivedRecords.length ? archivedRecords.map((record) => (
-          <div key={`${record.kind}-${record.id}-${record.archived_at}`} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-900">{record.name} ({record.id})</p>
-                <p className="text-xs uppercase tracking-wide text-slate-500">{record.kind}</p>
-                <p className="text-xs text-slate-500">Archived: {record.archived_at}</p>
-                <p className="text-xs text-slate-500">{record.details}</p>
-                {record.asset_path ? <p className="text-xs text-slate-500">Asset path: {record.asset_path}</p> : null}
-                {record.image_src ? <p className="truncate text-xs text-slate-500">Image source: {record.image_src}</p> : null}
-                {!record.record ? <p className="text-xs text-amber-700">Legacy archive metadata only. Restore unavailable.</p> : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => onRestoreArchivedRecord(record)}
-                disabled={!record.record}
-                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Restore
-              </button>
-            </div>
-          </div>
-        )) : <p className="text-sm text-slate-500">No archived profiles yet.</p>}
-      </div>
+      <h3 className="text-base font-semibold text-slate-900">Archived Documents</h3>
+      <p className="mt-2 text-sm text-slate-600">Document archive placeholder for generated files, prior versions, and retired compliance records that should sit outside the live document register.</p>
     </article>
   );
 };

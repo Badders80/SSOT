@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
+  ChevronRight,
   BadgeCheck,
   BriefcaseBusiness,
   FileText,
@@ -12,6 +13,19 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { buildHltDocxBlob, buildInvestorUpdateDocxBlob, downloadHltPdfFromHtml, downloadInvestorUpdatePdf } from './src/lib/lazyExports';
+import {
+  type HorseProfileSyncRecord,
+  type HorseProfileSyncStatus,
+  getHorseProfileSyncKey,
+  horseProfileSyncBadgeClass,
+  horseProfileSyncLabel,
+  resolveHorseProfileSyncRecord,
+} from './src/lib/ssot/horse-profile-sync';
+import {
+  buildProfileImageStoragePath,
+  profileImageSourceKindLabel,
+  resolveProfileImageSourceKind,
+} from './src/lib/ssot/profile-image-storage';
 import { loadSsotSeed } from './src/lib/ssot/seed-loader';
 
 const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
@@ -244,6 +258,7 @@ type PersistedLocalState = {
   customOwners: OwnerRecord[];
   customGoverningBodies: GoverningBodyRecord[];
   horseEdits: Record<string, HorseRecord>;
+  horseSyncState: Record<string, HorseProfileSyncRecord>;
   trainerEdits: Record<string, TrainerRecord>;
   ownerEdits: Record<string, OwnerRecord>;
   governingEdits: Record<string, GoverningBodyRecord>;
@@ -1923,11 +1938,16 @@ const App: React.FC = () => {
     const initialRoute = parseRoute(window.location.hash).route;
     return initialRoute === 'complianceNewZealand' || initialRoute === 'complianceDubai';
   });
+  const [isComplianceArchiveOpen, setIsComplianceArchiveOpen] = useState(() => {
+    const initialRoute = parseRoute(window.location.hash).route;
+    return initialRoute === 'complianceSsot' || initialRoute === 'complianceArchive';
+  });
   const [customHorses, setCustomHorses] = useState<HorseRecord[]>([]);
   const [customTrainers, setCustomTrainers] = useState<TrainerRecord[]>([]);
   const [customOwners, setCustomOwners] = useState<OwnerRecord[]>([]);
   const [customGoverningBodies, setCustomGoverningBodies] = useState<GoverningBodyRecord[]>([]);
   const [horseEdits, setHorseEdits] = useState<Record<string, HorseRecord>>({});
+  const [horseSyncState, setHorseSyncState] = useState<Record<string, HorseProfileSyncRecord>>({});
   const [trainerEdits, setTrainerEdits] = useState<Record<string, TrainerRecord>>({});
   const [ownerEdits, setOwnerEdits] = useState<Record<string, OwnerRecord>>({});
   const [governingEdits, setGoverningEdits] = useState<Record<string, GoverningBodyRecord>>({});
@@ -2062,6 +2082,12 @@ const App: React.FC = () => {
   }, [routeState.route]);
 
   useEffect(() => {
+    if (routeState.route === 'complianceSsot' || routeState.route === 'complianceArchive') {
+      setIsComplianceArchiveOpen(true);
+    }
+  }, [routeState.route]);
+
+  useEffect(() => {
     const load = async () => {
       let persisted: PersistedLocalState | null = null;
       try {
@@ -2092,6 +2118,7 @@ const App: React.FC = () => {
         setCustomOwners(persisted.customOwners ?? []);
         setCustomGoverningBodies(persisted.customGoverningBodies ?? []);
         setHorseEdits(persisted.horseEdits ?? {});
+        setHorseSyncState(persisted.horseSyncState ?? {});
         setTrainerEdits(persisted.trainerEdits ?? {});
         setOwnerEdits(persisted.ownerEdits ?? {});
         setGoverningEdits(persisted.governingEdits ?? {});
@@ -2119,6 +2146,7 @@ const App: React.FC = () => {
       customOwners,
       customGoverningBodies,
       horseEdits,
+      horseSyncState,
       trainerEdits,
       ownerEdits,
       governingEdits,
@@ -2136,6 +2164,7 @@ const App: React.FC = () => {
     customOwners,
     customGoverningBodies,
     horseEdits,
+    horseSyncState,
     trainerEdits,
     ownerEdits,
     governingEdits,
@@ -2158,6 +2187,21 @@ const App: React.FC = () => {
     () => ([...(seed?.horses ?? []), ...customHorses]).map((horse) => horseEdits[horse.horse_id] ?? horse),
     [seed, customHorses, horseEdits],
   );
+  const resolveHorseSyncRecord = (horse: HorseRecord): HorseProfileSyncRecord =>
+    resolveHorseProfileSyncRecord(horse, horseSyncState);
+
+  const setHorseSyncStatus = (horse: HorseRecord, status: HorseProfileSyncStatus) => {
+    const key = getHorseProfileSyncKey(horse);
+    const current = resolveHorseSyncRecord(horse);
+    setHorseSyncState((prev) => ({
+      ...prev,
+      [key]: {
+        ...current,
+        status,
+        last_checked_at: isoToday(),
+      },
+    }));
+  };
   useEffect(() => {
     if (!allHorses.length) return;
     if (allHorses.some((horse) => horse.horse_id === investorUpdateDraft.horseId)) return;
@@ -2266,6 +2310,20 @@ const App: React.FC = () => {
     : [];
   const selectedHorseRecentRaces = selectedHorse ? (recentRacesByHorseId[selectedHorse.horse_id] ?? []) : [];
   const selectedHorseRecentRacesLoading = selectedHorse ? recentRaceLoadingHorseId === selectedHorse.horse_id : false;
+  const selectedHorseSync = selectedHorse ? resolveHorseSyncRecord(selectedHorse) : null;
+  const selectedHorseImagePath = selectedHorse
+    ? (horseImageOverrides[selectedHorse.horse_id] ?? horseImageFor(selectedHorse))
+    : '';
+  const selectedHorseImageSourceKind = selectedHorse
+    ? resolveProfileImageSourceKind(selectedHorseImagePath)
+    : 'unknown';
+  const selectedHorseImageStoragePath = selectedHorse
+    ? buildProfileImageStoragePath({
+        entityType: 'horse',
+        entityKey: selectedHorse.microchip_number || selectedHorse.horse_id,
+        fileName: `${selectedHorse.horse_name || selectedHorse.horse_id}.png`,
+      })
+    : '';
 
   useEffect(() => {
     const horseId = selectedHorse?.horse_id ?? '';
@@ -3414,6 +3472,7 @@ const App: React.FC = () => {
           : route;
   const isRepositorySectionActive = ['horses', 'trainers', 'owners', 'governingBodies'].includes(routeForNav);
   const isComplianceJurisdictionActive = ['complianceNewZealand', 'complianceDubai'].includes(routeForNav);
+  const isComplianceArchiveActive = ['complianceSsot', 'complianceArchive'].includes(routeForNav);
   const contentTitle = route === 'dashboard'
     ? 'Operational Dashboard'
     : route === 'horses'
@@ -3443,7 +3502,7 @@ const App: React.FC = () => {
                             : route === 'complianceSsot'
                               ? 'SSOT Profiles'
                               : route === 'complianceArchive'
-                                ? 'Archive'
+                                ? 'Archived Documents'
                                 : route === 'leases'
                                   ? 'Lease Registry'
                                   : route === 'intake'
@@ -3491,12 +3550,27 @@ const App: React.FC = () => {
               </button>
               {isComplianceJurisdictionOpen ? (
                 <>
-                  <a className={`nav-item pl-6 ${routeForNav === 'complianceNewZealand' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/new-zealand"><ShieldCheck size={16} /><span>New Zealand</span></a>
-                  <a className={`nav-item pl-6 ${routeForNav === 'complianceDubai' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/dubai"><ShieldCheck size={16} /><span>Dubai</span></a>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceNewZealand' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/new-zealand"><ChevronRight size={14} className="text-slate-400" /><span>New Zealand</span></a>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceDubai' ? 'nav-item-active' : ''}`} href="#/compliance/jurisdiction/dubai"><ChevronRight size={14} className="text-slate-400" /><span>Dubai</span></a>
                 </>
               ) : null}
-              <a className={`nav-item ${routeForNav === 'complianceSsot' ? 'nav-item-active' : ''}`} href="#/compliance/ssot-profiles"><ShieldCheck size={16} /><span>SSOT Profiles</span></a>
-              <a className={`nav-item ${routeForNav === 'complianceArchive' ? 'nav-item-active' : ''}`} href="#/compliance/archive"><ShieldCheck size={16} /><span>Archive</span></a>
+              <button
+                type="button"
+                onClick={() => setIsComplianceArchiveOpen((prev) => !prev)}
+                className={`nav-item w-full justify-between ${isComplianceArchiveActive ? 'nav-item-active' : ''}`}
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck size={16} />
+                  <span>Archive</span>
+                </span>
+                <ChevronDown size={14} className={`transition-transform ${isComplianceArchiveOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isComplianceArchiveOpen ? (
+                <>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceSsot' ? 'nav-item-active' : ''}`} href="#/compliance/ssot-profiles"><ChevronRight size={14} className="text-slate-400" /><span>SSOT Profiles</span></a>
+                  <a className={`nav-item pl-6 ${routeForNav === 'complianceArchive' ? 'nav-item-active' : ''}`} href="#/compliance/archive"><ChevronRight size={14} className="text-slate-400" /><span>Documents</span></a>
+                </>
+              ) : null}
             </nav>
           </div>
         </aside>
@@ -3584,6 +3658,11 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         <p className="mt-1 text-sm text-slate-500">{horse.sex} • {horse.colour} • {horse.identity_status}</p>
+                        <div className="mt-2">
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${horseProfileSyncBadgeClass(resolveHorseSyncRecord(horse).status)}`}>
+                            {horseProfileSyncLabel(resolveHorseSyncRecord(horse).status)}
+                          </span>
+                        </div>
                         {editingHorseId === horse.horse_id && horseEditDraft ? (
                           <div className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3" onClick={(event) => event.stopPropagation()}>
                             <input value={horseEditDraft.horse_name} onChange={(e) => setHorseEditDraft((prev) => (prev ? { ...prev, horse_name: e.target.value } : prev))} placeholder="Horse name" className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
@@ -3743,6 +3822,13 @@ const App: React.FC = () => {
                       <div className="p-5">
                         <p className="text-3xl font-semibold tracking-tight text-slate-900">{selectedHorse.horse_name}</p>
                         <p className="mt-1 text-sm text-slate-500">{selectedHorse.horse_id} • {selectedHorse.horse_status} • {selectedHorse.identity_status}</p>
+                        {selectedHorseSync ? (
+                          <div className="mt-2">
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${horseProfileSyncBadgeClass(selectedHorseSync.status)}`}>
+                              {horseProfileSyncLabel(selectedHorseSync.status)}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="mt-4 flex flex-wrap gap-2">
                           <a href={selectedHorse.breeding_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Breeding <ExternalLink size={11} /></a>
                           <a href={selectedHorse.performance_profile_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Performance <ExternalLink size={11} /></a>
@@ -3796,6 +3882,40 @@ const App: React.FC = () => {
                           </div>
                         ))}
                         {selectedHorseRecentRacesLoading ? <div className="h-0" aria-hidden="true" /> : null}
+                      </div>
+                    </article>
+                  </section>
+
+                  <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Stage-One Sync</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p>
+                          <span className="font-semibold text-slate-900">Status:</span>{' '}
+                          {selectedHorseSync ? (
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${horseProfileSyncBadgeClass(selectedHorseSync.status)}`}>
+                              {horseProfileSyncLabel(selectedHorseSync.status)}
+                            </span>
+                          ) : 'Local'}
+                        </p>
+                        <p><span className="font-semibold text-slate-900">Firestore doc:</span> <span className="break-all">{selectedHorseSync?.firestore_doc_path ?? ''}</span></p>
+                        <p><span className="font-semibold text-slate-900">Last checked:</span> {selectedHorseSync?.last_checked_at || 'Not checked yet'}</p>
+                        <p className="text-xs text-slate-500">Stage one only tracks horse identity truth. Trainer, owner, governing body, lease terms, and HLT remain outside this sync state.</p>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setHorseSyncStatus(selectedHorse, 'local')} className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">Mark Local</button>
+                        <button type="button" onClick={() => setHorseSyncStatus(selectedHorse, 'firestore')} className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">Mark Firestore</button>
+                        <button type="button" onClick={() => setHorseSyncStatus(selectedHorse, 'synced')} className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Mark Synced</button>
+                      </div>
+                    </article>
+
+                    <article className="surface-card rounded-xl p-5">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Profile Image Path</h3>
+                      <div className="mt-3 space-y-2 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Current source:</span> {profileImageSourceKindLabel(selectedHorseImageSourceKind)}</p>
+                        <p><span className="font-semibold text-slate-900">Current image path:</span> <span className="break-all">{selectedHorseImagePath}</span></p>
+                        <p><span className="font-semibold text-slate-900">Planned storage path:</span> <span className="break-all">{selectedHorseImageStoragePath}</span></p>
+                        <p className="text-xs text-slate-500">Store the actual image file in Cloud Storage and keep only metadata plus the storage path in Firestore later.</p>
                       </div>
                     </article>
                   </section>

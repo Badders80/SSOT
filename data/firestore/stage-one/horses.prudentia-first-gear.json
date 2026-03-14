@@ -1,0 +1,53 @@
+{
+  "collection": "horses",
+  "documents": [
+    {
+      "doc_id": "985125000126713",
+      "data": {
+        "microchip_number": "985125000126713",
+        "horse_name": "First Gear",
+        "country_code": "NZ",
+        "foaling_year": 2021,
+        "foaling_date": "2021-10-02",
+        "sex": "Gelding",
+        "colour": "Bay",
+        "sire_name": "Derryn (AUS)",
+        "dam_name": "A'Guin Ace (NZ)",
+        "stud_book_id": "428364",
+        "nztr_life_number": "NZ00428364",
+        "pedigree_url": "https://loveracing.nz/Breeding/428364/First-Gear-NZ-2021.aspx#bm-pedigree",
+        "horse_performance_url": "https://loveracing.nz/Common/SystemTemplates/Modal/EntryDetail.aspx?DisplayContext=Modal&HorseID=428364",
+        "identity_status": "verified",
+        "source": {
+          "system": "loveracing_nz",
+          "verified_at": "2026-03-03",
+          "last_checked_at": "2026-03-13"
+        }
+      }
+    },
+    {
+      "doc_id": "985125000126462",
+      "data": {
+        "microchip_number": "985125000126462",
+        "horse_name": "Prudentia",
+        "country_code": "NZ",
+        "foaling_year": 2021,
+        "foaling_date": "2021-11-13",
+        "sex": "Mare",
+        "colour": "Bay",
+        "sire_name": "Proisir (AUS)",
+        "dam_name": "Little Bit Irish (NZ)",
+        "stud_book_id": "427416",
+        "nztr_life_number": "NZ00427416",
+        "pedigree_url": "https://loveracing.nz/Breeding/427416/Prudentia-NZ-2021.aspx#bm-pedigree",
+        "horse_performance_url": "https://loveracing.nz/Common/SystemTemplates/Modal/EntryDetail.aspx?DisplayContext=Modal&HorseID=427416",
+        "identity_status": "verified",
+        "source": {
+          "system": "loveracing_nz",
+          "verified_at": "2026-03-03",
+          "last_checked_at": "2026-03-13"
+        }
+      }
+    }
+  ]
+}
