@@ -1,0 +1,239 @@
+{
+  "id": "tpl_hlt_issuance",
+  "name": "HLT Issuance Termsheet",
+  "category": "Listing",
+  "description": "Template schema for the HLT Issuance One-Pager. Captures all fields required to produce a Horse Lease Token termsheet, including token identity, issuance economics, horse provenance, counterparty details, and commercial terms.",
+  "tags": ["tokinvest", "hlt", "issuance", "termsheet", "horse-lease-token"],
+  "version": "1.0",
+  "source": "wizard",
+  "sections": [
+    {
+      "id": "sec_submission",
+      "title": "Submission",
+      "fields": [
+        {
+          "key": "issuanceSubmissionDate",
+          "label": "Issuance Submission Date",
+          "type": "date",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "Date entered during HLT creation (DD/MM/YYYY)"
+        }
+      ]
+    },
+    {
+      "id": "sec_token_identity",
+      "title": "Token Identity",
+      "fields": [
+        {
+          "key": "tokenName",
+          "label": "Token Name",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "\"HLT – \" + horse.name + \" \" + horse.countryCode + \"01\"",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "e.g. HLT – Illustrious Lad NZ01"
+        },
+        {
+          "key": "erc20Identifier",
+          "label": "ERC20 Identifier",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "\"TVHLT\" + horse.initials + horse.countryCode + \"01\"",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "e.g. TVHLTILNZ01"
+        }
+      ]
+    },
+    {
+      "id": "sec_issuance",
+      "title": "Issuance Economics",
+      "fields": [
+        {
+          "key": "microchipNumber",
+          "label": "Microchip Number",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.microchipNumber (from horse repository, if available)",
+          "reusableType": "cached",
+          "required": false,
+          "placeholder": "15-digit microchip number (if registered)"
+        },
+        {
+          "key": "numberOfTokens",
+          "label": "Number of Tokens",
+          "type": "number",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "e.g. 100"
+        },
+        {
+          "key": "tokenPriceNZD",
+          "label": "Token Price (NZD)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "totalLeaseCostNZD / numberOfTokens",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "Calculated: Total lease cost NZD ÷ number of tokens"
+        },
+        {
+          "key": "tokenPriceAED",
+          "label": "Token Price (AED)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "tokenPriceNZD * xe.NZD_AED_rate",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "Converted from NZD via xe.com rate at time of issuance"
+        },
+        {
+          "key": "totalIssuanceValueNZD",
+          "label": "Total Issuance Value (NZD)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "leasePercentage * 65 * durationMonths",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "Calculated: lease% × $65 × duration_months"
+        },
+        {
+          "key": "totalIssuanceValueAED",
+          "label": "Total Issuance Value (AED)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "totalIssuanceValueNZD * xe.NZD_AED_rate",
+          "derivedMethod": "formula",
+          "required": true,
+          "placeholder": "Converted from NZD via xe.com rate at time of issuance"
+        }
+      ]
+    },
+    {
+      "id": "sec_horse",
+      "title": "Horse Identity",
+      "fields": [
+        {
+          "key": "horseName",
+          "label": "Horse Name",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.name (from horse repository)",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "horseCountryCode",
+          "label": "Country Code",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.countryCode (from horse repository)",
+          "reusableType": "cached",
+          "required": true,
+          "placeholder": "e.g. NZ, AUS, GB"
+        },
+        {
+          "key": "horseYear",
+          "label": "Year (Foaling Year)",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.foalingYear (from horse repository)",
+          "reusableType": "cached",
+          "required": true,
+          "placeholder": "e.g. 2022"
+        }
+      ]
+    },
+    {
+      "id": "sec_counterparties",
+      "title": "Counterparties",
+      "fields": [
+        {
+          "key": "stableTrainerLocation",
+          "label": "Stable / Trainer / Location",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "trainer.stable_name + ' / ' + trainer.contact_name + ' / ' + trainer.location (from trainer repository)",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "horseAssetLeaseOwner",
+          "label": "Horse Asset Lease / Owner",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "owner.name (from owner repository)",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "governingBody",
+          "label": "Governing Body",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "governingBody.name (from governing body repository)",
+          "reusableType": "cached",
+          "required": true,
+          "placeholder": "e.g. Racing New Zealand, Racing Australia"
+        }
+      ]
+    },
+    {
+      "id": "sec_commercial",
+      "title": "Commercial Terms",
+      "fields": [
+        {
+          "key": "leasePeriod",
+          "label": "Lease Period",
+          "type": "text",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "e.g. 12 months"
+        },
+        {
+          "key": "leaseCommencement",
+          "label": "Lease Commencement Date",
+          "type": "date",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "DD/MM/YYYY"
+        },
+        {
+          "key": "stakesSplit",
+          "label": "Stakes Split",
+          "type": "text",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "e.g. 25/75 (token holders / trainer)"
+        },
+        {
+          "key": "variations",
+          "label": "Variations",
+          "type": "textarea",
+          "classification": "INPUT",
+          "required": false,
+          "placeholder": "Any agreed variations to standard terms. Leave blank or enter n/a if none.",
+          "defaultValue": "n/a"
+        }
+      ]
+    },
+    {
+      "id": "sec_disclaimer",
+      "title": "Currency Disclaimer",
+      "fields": [
+        {
+          "key": "currencyDisclaimer",
+          "label": "Currency Disclaimer",
+          "type": "textarea",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.currency_disclaimer",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "created_at": "2026-03-15T00:00:00.000Z",
+  "updated_at": "2026-03-15T00:00:00.000Z"
+}

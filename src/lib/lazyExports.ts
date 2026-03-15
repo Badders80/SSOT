@@ -339,6 +339,327 @@ export const buildDsListingDocxBlob = async (payload: DsListingPayload): Promise
   return Packer.toBlob(doc);
 };
 
+// ─── Syndicate Agreement Document Builder ─────────────────────────────────────
+
+type SyndicateAgreementPayloadLike = {
+  syndicateName: string;
+  horseName: string;
+  agreementDate: string;
+  countryCode: string;
+  leaseDurationMonths: number;
+  numTokens: number;
+  percentPerToken: string;
+  leasePercent: string;
+  leaseStartDate: string;
+  leaseEndDate: string;
+  investorSplit: string;
+  ownerSplit: string;
+  staticClauseBody: string;
+  signatoryName: string;
+  signatoryTitle: string;
+  variations: string;
+};
+
+export const buildSyndicateAgreementDocxBlob = async (
+  payload: SyndicateAgreementPayloadLike,
+): Promise<Blob> => {
+  const { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } = await import('docx');
+  const p = payload;
+
+  const variableClauseParagraphs = [
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: '2. Object of the Syndicate', bold: true })] }),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun(`The Syndicate is formed for the purpose of leasing ${p.leasePercent} of the racehorse "${p.horseName}" (${p.countryCode}) for a period of ${p.leaseDurationMonths} months.`)] }),
+
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: '4. Shares', bold: true })] }),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun(`The Syndicate shall consist of ${p.numTokens} tokens, each representing ${p.percentPerToken} of the syndicate interest (${p.leasePercent} lease of the horse).`)] }),
+
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: '5. Duration', bold: true })] }),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun(`The lease commences on ${p.leaseStartDate} and expires on ${p.leaseEndDate} (${p.leaseDurationMonths} months).`)] }),
+
+    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: '8. Revenue Distribution', bold: true })] }),
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun(`Net prize earnings shall be distributed ${p.investorSplit} to token holders and ${p.ownerSplit} to the owner/trainer.`)] }),
+  ];
+
+  const staticParagraphs = p.staticClauseBody.split(/\n{2,}/).filter(Boolean).map((block) =>
+    new Paragraph({ spacing: { after: 120 }, children: [new TextRun(block.trim())] }),
+  );
+
+  const doc = new Document({
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22 } } },
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+        },
+      },
+      children: [
+        // Title
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: 'SYNDICATE AGREEMENT', bold: true, size: 36 })],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 300 },
+          children: [new TextRun({ text: p.syndicateName, size: 28, bold: true })],
+        }),
+
+        // Agreement date
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'Date: ', bold: true }), new TextRun(p.agreementDate)] }),
+
+        // Variable clauses
+        ...variableClauseParagraphs,
+
+        // Static clauses
+        new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun({ text: 'Standard Clauses', bold: true })] }),
+        ...staticParagraphs,
+
+        // Variations
+        new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun({ text: '14. Variations', bold: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.variations?.trim() || 'n/a')] }),
+
+        // Signature block
+        new Paragraph({ spacing: { before: 400 }, children: [] }),
+        new Paragraph({ children: [new TextRun({ text: 'Signed on behalf of the Syndicate Manager:', bold: true })] }),
+        new Paragraph({ spacing: { before: 200 }, children: [] }),
+        new Paragraph({ children: [new TextRun('____________________________')] }),
+        new Paragraph({ children: [new TextRun({ text: p.signatoryName, bold: true })] }),
+        new Paragraph({ children: [new TextRun(p.signatoryTitle)] }),
+      ],
+    }],
+  });
+
+  return Packer.toBlob(doc);
+};
+
+// ─── PDS Document Builder ──────────────────────────────────────────────────────
+
+type PDSPayloadLike = {
+  productName: string;
+  issuerName: string;
+  issueDate: string;
+  pdsVersion: string;
+  investmentType: string;
+  riskLevel: string;
+  minInvestment: number;
+  keyBenefits: string[];
+  keyRisks: string[];
+  horseName: string;
+  horseCountryCode: string;
+  sire: string;
+  dam: string;
+  foalingDate: string;
+  sex: string;
+  colour: string;
+  trainer: string;
+  location: string;
+  racingRecord: string;
+  horseNarrative: string;
+  tokenCount: number;
+  tokenPrice: number;
+  totalOffering: number;
+  leaseDuration: number;
+  leaseStart: string;
+  leaseEnd: string;
+  revenueShare: string;
+  earningsDistribution: string;
+  investmentRisks: string;
+  horseRisks: string;
+  regulatoryRisks: string;
+  managementFee: string;
+  platformFee: string;
+  transactionFee: string;
+  otherCosts: string;
+  governingLaw: string;
+  disputeResolution: string;
+  regulatoryStatus: string;
+  privacyStatement: string;
+  glossary: string;
+  contactDetails: string;
+  websiteUrl: string;
+};
+
+export const buildPDSDocxBlob = async (payload: PDSPayloadLike): Promise<Blob> => {
+  const {
+    Document, HeadingLevel, Packer, Paragraph, TextRun,
+    AlignmentType, LevelFormat,
+    Table, TableRow, TableCell, BorderStyle, WidthType, ShadingType,
+  } = await import('docx');
+
+  const p = payload;
+  const bulletRef = 'pds-bullets';
+  const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const cellBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+  const COL1 = 3200;
+  const COL2 = 5826;
+
+  function kvTable(rows: [string, string][]) {
+    return new Table({
+      width: { size: COL1 + COL2, type: WidthType.DXA },
+      columnWidths: [COL1, COL2],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({ borders: cellBorders, width: { size: COL1, type: WidthType.DXA }, shading: { fill: '2D3A4A', type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: 'Field', bold: true, color: 'FFFFFF', font: 'Calibri', size: 20 })] })] }),
+            new TableCell({ borders: cellBorders, width: { size: COL2, type: WidthType.DXA }, shading: { fill: '2D3A4A', type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: 'Value', bold: true, color: 'FFFFFF', font: 'Calibri', size: 20 })] })] }),
+          ],
+        }),
+        ...rows.map(([field, value], idx) =>
+          new TableRow({
+            children: [
+              new TableCell({ borders: cellBorders, width: { size: COL1, type: WidthType.DXA }, shading: { fill: idx % 2 === 0 ? 'F5F5F5' : 'FFFFFF', type: ShadingType.CLEAR }, margins: { top: 40, bottom: 40, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: field, bold: true, font: 'Calibri', size: 20 })] })] }),
+              new TableCell({ borders: cellBorders, width: { size: COL2, type: WidthType.DXA }, shading: { fill: idx % 2 === 0 ? 'F5F5F5' : 'FFFFFF', type: ShadingType.CLEAR }, margins: { top: 40, bottom: 40, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: value, font: 'Calibri', size: 20 })] })] }),
+            ],
+          }),
+        ),
+      ],
+    });
+  }
+
+  function bulletList(items: string[]) {
+    return items.map((text) =>
+      new Paragraph({ numbering: { reference: bulletRef, level: 0 }, spacing: { after: 40 }, children: [new TextRun(text)] }),
+    );
+  }
+
+  function bodyParagraphs(text: string) {
+    return text.split(/\n{2,}/).filter(Boolean).map((block) =>
+      new Paragraph({ spacing: { after: 120 }, children: [new TextRun(block.trim())] }),
+    );
+  }
+
+  const nzd = (v: number) => `$${v.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const doc = new Document({
+    numbering: {
+      config: [{
+        reference: bulletRef,
+        levels: [{
+          level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        }],
+      }],
+    },
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22 } } },
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+        },
+      },
+      children: [
+        // Cover
+        new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: 'PRODUCT DISCLOSURE STATEMENT', bold: true, size: 36 })],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 120 },
+          children: [new TextRun({ text: p.productName, size: 28, bold: true })],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 300 },
+          children: [new TextRun({ text: `Issued by ${p.issuerName} | ${p.issueDate} | Version ${p.pdsVersion}`, size: 20, color: '666666' })],
+        }),
+
+        // 1. Key Information Summary
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: '1. Key Information Summary', bold: true })] }),
+        kvTable([
+          ['Product Name', p.productName],
+          ['Issuer', p.issuerName],
+          ['Issue Date', p.issueDate],
+          ['Investment Type', p.investmentType],
+          ['Risk Level', p.riskLevel],
+          ['Minimum Investment', `${p.minInvestment} token(s) (${nzd(p.minInvestment * p.tokenPrice)})`],
+        ]),
+        new Paragraph({ spacing: { before: 200 }, heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Key Benefits' })] }),
+        ...bulletList(p.keyBenefits),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Key Risks' })] }),
+        ...bulletList(p.keyRisks),
+
+        // 2. About the Horse
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: `2. About ${p.horseName}`, bold: true })] }),
+        kvTable([
+          ['Horse Name', `${p.horseName} (${p.horseCountryCode})`],
+          ['Sire', p.sire],
+          ['Dam', p.dam],
+          ['Foaling Date', p.foalingDate],
+          ['Sex', p.sex],
+          ['Colour', p.colour],
+          ['Trainer', p.trainer],
+          ['Location', p.location],
+          ['Racing Record', p.racingRecord],
+        ]),
+        ...(p.horseNarrative ? [
+          new Paragraph({ spacing: { before: 200, after: 120 }, children: [new TextRun(p.horseNarrative)] }),
+        ] : []),
+
+        // 3. Token Offering Details
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '3. Token Offering Details', bold: true })] }),
+        kvTable([
+          ['Number of Tokens', String(p.tokenCount)],
+          ['Token Price (NZD)', nzd(p.tokenPrice)],
+          ['Total Offering Value', nzd(p.totalOffering)],
+          ['Lease Duration', `${p.leaseDuration} months`],
+          ['Lease Period', `${p.leaseStart} to ${p.leaseEnd}`],
+          ['Revenue Share', p.revenueShare],
+        ]),
+
+        // 4. Earnings & Distribution
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '4. Earnings & Distribution', bold: true })] }),
+        ...bodyParagraphs(p.earningsDistribution),
+
+        // 5. Risks
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '5. Risks', bold: true })] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Investment Risks' })] }),
+        ...bodyParagraphs(p.investmentRisks),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Horse-Specific Risks' })] }),
+        ...bodyParagraphs(p.horseRisks),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Regulatory Risks' })] }),
+        ...bodyParagraphs(p.regulatoryRisks),
+
+        // 6. Fees & Costs
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '6. Fees & Costs', bold: true })] }),
+        kvTable([
+          ['Management Fee', p.managementFee],
+          ['Platform Fee', p.platformFee],
+          ['Transaction Fee', p.transactionFee],
+          ['Other Costs', p.otherCosts],
+        ]),
+
+        // 7. Legal & Regulatory
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '7. Legal & Regulatory', bold: true })] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: 'Governing Law: ', bold: true }), new TextRun(p.governingLaw)] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: 'Dispute Resolution: ', bold: true }), new TextRun(p.disputeResolution)] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: 'Regulatory Status: ', bold: true }), new TextRun(p.regulatoryStatus)] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'Privacy: ', bold: true }), new TextRun(p.privacyStatement)] }),
+
+        // 8. Appendices
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300 }, children: [new TextRun({ text: '8. Appendices', bold: true })] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Glossary' })] }),
+        ...bodyParagraphs(p.glossary),
+
+        // Contact
+        new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 200 }, children: [new TextRun({ text: 'Contact' })] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun(p.contactDetails)] }),
+        new Paragraph({ children: [new TextRun(p.websiteUrl)] }),
+      ],
+    }],
+  });
+
+  return Packer.toBlob(doc);
+};
+
 export const downloadInvestorUpdatePdf = async (payload: InvestorUpdatePayloadLike, fileName: string): Promise<void> => {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });

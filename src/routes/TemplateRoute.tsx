@@ -3,6 +3,9 @@ import { FileText, Plus, Wand2, Wrench } from 'lucide-react';
 
 type TemplateRouteProps = {
   onOpenDSListingWizard: () => void;
+  onOpenHLTIssuanceWizard: () => void;
+  onOpenSyndicateAgreementWizard: () => void;
+  onOpenPDSWizard: () => void;
 };
 
 type PlaceholderTemplate = {
@@ -14,32 +17,14 @@ type PlaceholderTemplate = {
 
 const PLACEHOLDER_TEMPLATES: PlaceholderTemplate[] = [
   {
-    id: 'pds',
-    name: 'Product Disclosure Statement (PDS)',
-    category: 'Compliance',
-    description: 'Regulatory disclosure document required for each offering. Includes risk factors, fee schedule, and jurisdiction-specific disclosures.',
-  },
-  {
-    id: 'syndicate-agreement',
-    name: 'Syndicate Agreement',
-    category: 'Legal',
-    description: 'Legal agreement governing the relationship between token holders and the stable. Covers rights, obligations, and profit distribution.',
-  },
-  {
     id: 'vara-whitepaper',
     name: 'VARA Whitepaper',
     category: 'Compliance',
     description: 'Virtual Asset Regulatory Authority compliant whitepaper covering tokenomics, governance structure, and compliance framework.',
   },
-  {
-    id: 'hlt-termsheet',
-    name: 'HLT Issuance Termsheet',
-    category: 'Listing',
-    description: 'Structured term sheet for Horse Lease Token issuances. Covers token quantity, lease duration, and financial terms.',
-  },
 ];
 
-export default function TemplateRoute({ onOpenDSListingWizard }: TemplateRouteProps) {
+export default function TemplateRoute({ onOpenDSListingWizard, onOpenHLTIssuanceWizard, onOpenSyndicateAgreementWizard, onOpenPDSWizard }: TemplateRouteProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   return (
@@ -69,67 +54,268 @@ export default function TemplateRoute({ onOpenDSListingWizard }: TemplateRoutePr
         <p className="text-sm font-semibold uppercase tracking-wide text-slate-500" style={{ marginBottom: '0.75rem' }}>
           Active Templates
         </p>
-        <div
-          className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50"
-          style={{ cursor: 'default' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: '2rem',
-                  height: '2rem',
-                  borderRadius: '0.375rem',
-                  backgroundColor: '#dbeafe',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <FileText size={16} color="#2563eb" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a' }}>
-                    DS Listing Document
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                    Active
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: '#64748b',
-                      backgroundColor: '#f1f5f9',
-                      borderRadius: '0.25rem',
-                      padding: '0.125rem 0.375rem',
-                    }}
-                  >
-                    Listing
-                  </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {/* DS Listing Document */}
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50"
+            style={{ cursor: 'default' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: '2rem',
+                    height: '2rem',
+                    borderRadius: '0.375rem',
+                    backgroundColor: '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={16} color="#2563eb" />
                 </div>
-                <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.25rem' }}>
-                  Tokinvest DS Data Fields document for new horse listings. Produces the complete offering page content including horse profile, pedigree analysis, trainer bio, and meta keys.
-                </p>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  v1.0 &nbsp;·&nbsp; 8 sections &nbsp;·&nbsp; Wizard-built from 3 example documents
-                </p>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a' }}>
+                      DS Listing Document
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                      Active
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '0.25rem',
+                        padding: '0.125rem 0.375rem',
+                      }}
+                    >
+                      Listing
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                    Tokinvest DS Data Fields document for new horse listings. Produces the complete offering page content including horse profile, pedigree analysis, trainer bio, and meta keys.
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    v1.0 &nbsp;·&nbsp; 8 sections &nbsp;·&nbsp; Wizard-built from 3 example documents
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <button
+                  onClick={onOpenDSListingWizard}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Template
+                </button>
+                <button
+                  onClick={() => alert('Template editor coming soon — this will open the full section/field editor.')}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Edit
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-              <button
-                onClick={onOpenDSListingWizard}
-                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Use Template
-              </button>
-              <button
-                onClick={() => alert('Template editor coming soon — this will open the full section/field editor.')}
-                className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-              >
-                Edit
-              </button>
+          </div>
+
+          {/* HLT Issuance Termsheet */}
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50"
+            style={{ cursor: 'default' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: '2rem',
+                    height: '2rem',
+                    borderRadius: '0.375rem',
+                    backgroundColor: '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={16} color="#2563eb" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a' }}>
+                      HLT Issuance Termsheet
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                      Active
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '0.25rem',
+                        padding: '0.125rem 0.375rem',
+                      }}
+                    >
+                      Listing
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                    Structured term sheet for Horse Lease Token issuances. Covers token quantity, lease duration, and financial terms.
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    v1.0 &nbsp;·&nbsp; 7 sections &nbsp;·&nbsp; Wizard-built
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <button
+                  onClick={onOpenHLTIssuanceWizard}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Template
+                </button>
+                <button
+                  onClick={() => alert('Template editor coming soon — this will open the full section/field editor.')}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Syndicate Agreement */}
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50"
+            style={{ cursor: 'default' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: '2rem',
+                    height: '2rem',
+                    borderRadius: '0.375rem',
+                    backgroundColor: '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={16} color="#2563eb" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a' }}>
+                      Syndicate Agreement
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                      Active
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '0.25rem',
+                        padding: '0.125rem 0.375rem',
+                      }}
+                    >
+                      Legal
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                    17-clause legal syndicate agreement for horse racing tokenisation. Covers object, shares, duration, revenue distribution, and winding-up provisions.
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    v1.0 &nbsp;·&nbsp; 4 sections &nbsp;·&nbsp; Wizard-built
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <button
+                  onClick={onOpenSyndicateAgreementWizard}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Template
+                </button>
+                <button
+                  onClick={() => alert('Template editor coming soon — this will open the full section/field editor.')}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Disclosure Statement (PDS) */}
+          <div
+            className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:border-blue-200 hover:bg-blue-50"
+            style={{ cursor: 'default' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1 }}>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: '2rem',
+                    height: '2rem',
+                    borderRadius: '0.375rem',
+                    backgroundColor: '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={16} color="#2563eb" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0f172a' }}>
+                      Product Disclosure Statement (PDS)
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                      Active
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '0.25rem',
+                        padding: '0.125rem 0.375rem',
+                      }}
+                    >
+                      Compliance
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                    Regulatory disclosure document required for each offering. Includes risk factors, fee schedule, and jurisdiction-specific disclosures.
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    v1.0 &nbsp;·&nbsp; 8 sections &nbsp;·&nbsp; Wizard-built
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                <button
+                  onClick={onOpenPDSWizard}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Use Template
+                </button>
+                <button
+                  onClick={() => alert('Template editor coming soon — this will open the full section/field editor.')}
+                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                >
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
         </div>

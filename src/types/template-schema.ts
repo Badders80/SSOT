@@ -1,6 +1,6 @@
 export type FieldClassification = 'STATIC' | 'REUSABLE' | 'INPUT' | 'DERIVED';
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'url' | 'dropdown' | 'boolean' | 'array';
+export type FieldType = 'text' | 'textarea' | 'number' | 'date' | 'url' | 'dropdown' | 'boolean' | 'array' | 'currency';
 
 export type TemplateField = {
   key: string;
@@ -11,6 +11,10 @@ export type TemplateField = {
   required: boolean;
   placeholder?: string;
   defaultValue?: string;
+  derivedMethod?: 'llm' | 'formula';
+  reusableType?: 'cached' | 'llm-generated';
+  llmPrompt?: string;
+  outputHint?: string;
 };
 
 export type TemplateSection = {

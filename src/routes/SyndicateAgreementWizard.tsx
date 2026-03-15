@@ -106,19 +106,6 @@ type RichTrainerJson = {
   notable_wins?: string[];
 };
 
-type BoilerplateJson = {
-  intro_template: string;
-  why_tokenise_heading: string;
-  why_tokenise_body: string;
-  why_tokenise_bullets?: string[];
-  earnings_language: string;
-  earnings_sentence: string;
-  pedigree_intro: string;
-  pedigree_intro_body: string;
-  asset_type: string;
-  promoted_default: string;
-};
-
 // ─── Seed types (from App.tsx) ───────────────────────────────────────────────
 
 type HorseData = {
@@ -143,11 +130,32 @@ type TrainerData = {
   notes: string;
 };
 
-type DSListingWizardProps = {
+type SyndicateAgreementWizardProps = {
   horses: HorseData[];
   trainers: TrainerData[];
   onClose: () => void;
   onGenerate: (data: Record<string, unknown>) => void;
+};
+
+// ─── Syndicate Agreement Payload type ────────────────────────────────────────
+
+type SyndicateAgreementPayload = {
+  syndicateName: string;
+  horseName: string;
+  agreementDate: string;
+  countryCode: string;
+  leaseDurationMonths: number;
+  numTokens: number;
+  percentPerToken: string;
+  leasePercent: string;
+  leaseStartDate: string;
+  leaseEndDate: string;
+  investorSplit: string;
+  ownerSplit: string;
+  staticClauseBody: string;
+  signatoryName: string;
+  signatoryTitle: string;
+  variations: string;
 };
 
 // ─── Load rich JSON data via Vite import.meta.glob ──────────────────────────
@@ -156,7 +164,6 @@ const horseModules = import.meta.glob<{ default: RichHorseJson }>('/data/horses/
 const sireModules = import.meta.glob<{ default: RichSireJson }>('/data/sires/*.json', { eager: true });
 const damModules = import.meta.glob<{ default: RichDamJson }>('/data/dams/*.json', { eager: true });
 const trainerModules = import.meta.glob<{ default: RichTrainerJson }>('/data/trainers/*.json', { eager: true });
-const boilerplateModule = import.meta.glob<{ default: BoilerplateJson }>('/data/templates/boilerplate.json', { eager: true });
 
 function buildLookup<T extends { slug?: string }>(modules: Record<string, { default: T }>): Record<string, T> {
   const map: Record<string, T> = {};
@@ -180,17 +187,6 @@ const horseLookup = buildLookup(horseModules);
 const sireLookup = buildLookup(sireModules);
 const damLookup = buildLookup(damModules);
 const trainerLookup = buildTrainerLookup(trainerModules);
-const boilerplate: BoilerplateJson = Object.values(boilerplateModule)[0]?.default ?? {
-  intro_template: '',
-  why_tokenise_heading: 'Why Tokenise a Racehorse?',
-  why_tokenise_body: '',
-  earnings_language: '',
-  earnings_sentence: '',
-  pedigree_intro: 'Built on Pedigree',
-  pedigree_intro_body: '',
-  asset_type: 'Horse',
-  promoted_default: 'Yes',
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,36 +214,48 @@ function formatDateDMY(isoDate: string): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-function generateSearchTerms(data: {
-  horseName: string; trainerName: string; stableName: string;
-  sireName: string; damName: string; location: string; colour: string; sex: string;
-}): string {
-  return [
-    data.horseName, data.trainerName, data.stableName,
-    data.sireName.replace(/\s*\(.*?\)/g, ''), data.damName.replace(/\s*\(.*?\)/g, ''),
-    data.location, data.colour, data.sex,
-    'Evolution Stables', 'Tokinvest', 'racehorse', 'tokenisation', 'horse racing', 'New Zealand', 'thoroughbred',
-  ].filter(Boolean).join(', ');
+function formatDateISO(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function buildDetailSummary(parts: {
-  colour: string; sex: string; foalingDate: string;
-  sireName: string; damName: string; trainerDisplay: string;
-  location: string; leaseDuration: number; microchip: string;
-}): string {
-  return [
-    `${parts.colour} ${parts.sex}, ${parts.foalingDate.split('-')[0] ?? ''}`,
-    `Sire: ${parts.sireName}`,
-    `Dam: ${parts.damName}`,
-    `Trainer: ${parts.trainerDisplay}`,
-    `Location: ${parts.location}`,
-    `Lease Duration: ${parts.leaseDuration} months`,
-    `Microchip: ${parts.microchip}`,
-  ].filter((p) => {
-    const v = p.split(': ').slice(1).join(': ');
-    return v && v.trim() !== '';
-  }).join(' | ');
+function addMonthsToDate(isoDate: string, months: number): string {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '';
+  d.setMonth(d.getMonth() + months);
+  return formatDateISO(d);
 }
+
+// ─── Static Clause Body (boilerplate) ─────────────────────────────────────────
+
+const STATIC_CLAUSE_BODY = `CLAUSE 1 \u2013 DEFINITIONS: In this Agreement, unless the context otherwise requires: \u201cAgreement\u201d means this Syndicate Agreement; \u201cHorse\u201d means the thoroughbred racehorse identified in Clause 2; \u201cSyndicate\u201d means the syndicate established under this Agreement; \u201cToken\u201d means a digital token representing a fractional interest in the Horse\u2019s lease; \u201cToken Holder\u201d means the registered holder of one or more Tokens.
+
+CLAUSE 3 \u2013 FORMATION: The Syndicate is formed on the date of this Agreement for the purpose of leasing and racing the Horse.
+
+CLAUSE 6 \u2013 MANAGEMENT: The Manager shall have full authority to make all decisions regarding the training, racing, spelling, veterinary care, and general management of the Horse.
+
+CLAUSE 7 \u2013 EXPENSES: All expenses incurred in connection with the Horse shall be borne by the Manager and are factored into the lease pricing.
+
+CLAUSE 9 \u2013 INSURANCE: The Manager shall maintain appropriate insurance coverage for the Horse at all times during the lease period.
+
+CLAUSE 10 \u2013 REPORTING: The Manager shall provide Token Holders with regular updates on the Horse\u2019s progress, training, and racing activities.
+
+CLAUSE 11 \u2013 TRANSFER: Tokens may be transferred through the Tokinvest platform in accordance with the platform\u2019s terms and conditions.
+
+CLAUSE 12 \u2013 WINDING UP: Upon expiry of the lease period, the Syndicate shall be wound up and any residual funds distributed to Token Holders pro-rata.
+
+CLAUSE 13 \u2013 FORCE MAJEURE: Neither party shall be liable for any failure to perform obligations due to circumstances beyond reasonable control.
+
+CLAUSE 15 \u2013 GOVERNING LAW: This Agreement shall be governed by and construed in accordance with the laws of New Zealand.
+
+CLAUSE 16 \u2013 DISPUTE RESOLUTION: Any dispute arising under this Agreement shall be referred to mediation, and if unresolved, to arbitration in accordance with the Arbitration Act 1996 (NZ).
+
+CLAUSE 17 \u2013 ENTIRE AGREEMENT: This Agreement constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, and agreements.`;
+
+// ─── Signature Block (static) ─────────────────────────────────────────────────
+
+const SIGNATORY_NAME = 'Alex Baddeley';
+const SIGNATORY_TITLE = 'Director, Evolution Stables Ltd';
 
 // ─── Shared UI atoms ──────────────────────────────────────────────────────────
 
@@ -299,7 +307,7 @@ function TextareaField({ label, value, onChange, placeholder, rows = 4, readOnly
 
 function ReadOnlyGrey({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{ fontSize: '0.8125rem', color: '#94a3b8', lineHeight: 1.55, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.625rem 0.75rem', marginBottom: '0.875rem', fontStyle: 'italic' }}>
+    <p style={{ fontSize: '0.8125rem', color: '#94a3b8', lineHeight: 1.55, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '0.625rem 0.75rem', marginBottom: '0.875rem', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
       {children}
     </p>
   );
@@ -309,14 +317,14 @@ function InfoPill({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
       <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>{value || <span style={{ color: '#cbd5e1' }}>—</span>}</span>
+      <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>{value || <span style={{ color: '#cbd5e1' }}>{'\u2014'}</span>}</span>
     </div>
   );
 }
 
 // ─── Step Progress Indicator ──────────────────────────────────────────────────
 
-const STEP_NAMES = ['Select Horse', 'Narrative Content', 'Details & Meta', 'Review & Generate', 'Document Review'];
+const STEP_NAMES = ['Select Horse', 'Agreement Terms', 'Review Clauses', 'Generate', 'Document Review'];
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -363,30 +371,24 @@ function ReviewBlock({ title, rows }: { title: string; rows: { label: string; va
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function DSListingWizard({ horses, trainers, onClose, onGenerate }: DSListingWizardProps) {
+export default function SyndicateAgreementWizard({ horses, trainers, onClose, onGenerate }: SyndicateAgreementWizardProps) {
   const [step, setStep] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [generatedOnce, setGeneratedOnce] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
 
-  // Step 1 — Horse identity
+  // Step 1 — Horse selection
   const [selectedHorseId, setSelectedHorseId] = useState('');
-  const [loveracingUrl, setLoveracingUrl] = useState('');
 
-  // Step 2 — Narrative content (auto-populated from rich JSON, editable)
-  const [horseIntro, setHorseIntro] = useState('');
-  const [narrativeHeadline, setNarrativeHeadline] = useState('');
-  const [narrativeBody, setNarrativeBody] = useState('');
-  const [sireDescription, setSireDescription] = useState('');
-  const [damDescription, setDamDescription] = useState('');
-  const [trainerBio, setTrainerBio] = useState('');
-
-  // Step 3 — Details & Meta (auto-populated from offering data)
-  const [leaseDuration, setLeaseDuration] = useState(16);
-  const [location, setLocation] = useState('');
-  const [racingRecord, setRacingRecord] = useState('');
-  const [searchTerms, setSearchTerms] = useState('');
+  // Step 2 — Agreement terms
+  const [agreementDate, setAgreementDate] = useState(formatDateISO(new Date()));
+  const [leaseDurationMonths, setLeaseDurationMonths] = useState(16);
+  const [numTokens, setNumTokens] = useState(100);
+  const [leasePercent, setLeasePercent] = useState('');
+  const [leaseStartDate, setLeaseStartDate] = useState('');
+  const [investorSplit, setInvestorSplit] = useState('75%');
+  const [variations, setVariations] = useState('');
 
   // ── Derived values from seed data ─────────────────────────────────────────
   const selectedHorse = horses.find((h) => h.horse_id === selectedHorseId) ?? null;
@@ -416,6 +418,26 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
     return trainerLookup[richHorse.trainerSlug] ?? null;
   }, [richHorse]);
 
+  // ── Derived identity fields ────────────────────────────────────────────────
+  const horseName = selectedHorse?.horse_name ?? '';
+  const horseCountryCode = selectedHorse?.country_code ?? '';
+  const foalingDate = richHorse?.foalingDate ?? selectedHorse?.foaling_date ?? '';
+  const ageName = foalingDate ? ageDescription(foalingDate) : '';
+  const horseDOBFormatted = formatDateDMY(foalingDate);
+  const microchipNumber = richHorse?.microchip ?? richHorse?.identity?.microchip_number ?? selectedHorse?.microchip_number ?? '';
+  const sireName = richHorse?.pedigree?.sire_name ?? richSire?.display_name ?? selectedHorse?.sire ?? '';
+  const damName = richHorse?.pedigree?.dam_name ?? richDam?.display_name ?? selectedHorse?.dam ?? '';
+
+  // ── Auto-derived fields ────────────────────────────────────────────────────
+  const syndicateName = horseName ? `${horseName} Syndicate` : '';
+  const percentPerToken = numTokens > 0 ? (100 / numTokens).toFixed(2) + '%' : '';
+  const leaseEndDate = leaseStartDate && leaseDurationMonths > 0
+    ? addMonthsToDate(leaseStartDate, leaseDurationMonths)
+    : '';
+  const ownerSplit = investorSplit
+    ? (100 - parseInt(investorSplit.replace('%', ''), 10)) + '%'
+    : '';
+
   // ── Auto-fill when horse selection changes ────────────────────────────────
   const handleHorseChange = useCallback((id: string) => {
     setSelectedHorseId(id);
@@ -424,76 +446,20 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
 
     const slug = slugFromSeedHorse(horse);
     const rh = horseLookup[slug];
-    const rs = rh ? sireLookup[rh.sireSlug] : null;
-    const rd = rh ? damLookup[rh.damSlug] : null;
-    const rt = rh ? trainerLookup[rh.trainerSlug] : null;
-    const seedTrainer = trainers.find((t) => t.trainer_id === horse.trainer_id) ?? null;
 
-    // Auto-fill narrative from rich horse JSON
-    if (rh?.narrative?.horse_intro) setHorseIntro(rh.narrative.horse_intro);
-    else setHorseIntro('');
-
-    if (rh?.narrative?.headline) setNarrativeHeadline(rh.narrative.headline);
-    else setNarrativeHeadline('');
-
-    if (rh?.narrative?.body) setNarrativeBody(rh.narrative.body);
-    else setNarrativeBody('');
-
-    // Auto-fill REUSABLE sire/dam/trainer descriptions
-    if (rs?.description) setSireDescription(rs.description);
-    else setSireDescription('');
-
-    if (rd?.description) setDamDescription(rd.description);
-    else setDamDescription('');
-
-    if (rt?.bio) setTrainerBio(rt.bio);
-    else setTrainerBio('');
-
-    // Auto-fill offering details
     const offering = rh?.offering;
-    setLeaseDuration(offering?.duration_months ?? offering?.leaseDurationMonths ?? 16);
-    setLocation(offering?.location ?? rt?.location ?? seedTrainer?.notes ?? '');
-    setRacingRecord(rh?.racingRecord ?? '');
 
-    // Generate search terms
-    const sireName = rh?.pedigree?.sire_name ?? horse.sire ?? '';
-    const damName = rh?.pedigree?.dam_name ?? horse.dam ?? '';
-    setSearchTerms(generateSearchTerms({
-      horseName: horse.horse_name,
-      trainerName: rt?.trainer_name ?? seedTrainer?.trainer_name ?? '',
-      stableName: rt?.stable_name ?? seedTrainer?.stable_name ?? '',
-      sireName, damName,
-      location: offering?.location ?? rt?.location ?? '',
-      colour: horse.colour,
-      sex: horse.sex,
-    }));
-  }, [horses, trainers]);
+    // Auto-fill terms from offering data
+    setLeaseDurationMonths(offering?.duration_months ?? offering?.leaseDurationMonths ?? 16);
+    setNumTokens(offering?.token_count ?? 100);
+    setLeasePercent(offering?.percent_leased != null ? `${offering.percent_leased}%` : '');
+    setLeaseStartDate(offering?.start_date ?? '');
 
-  // Computed derived fields
-  const foalingDate = richHorse?.foalingDate ?? selectedHorse?.foaling_date ?? '';
-  const ageName = foalingDate ? ageDescription(foalingDate) : '';
-  const horseDOBFormatted = formatDateDMY(foalingDate);
-  const foalingYear = foalingDate ? foalingDate.split('-')[0] ?? '' : '';
-  const offeringTitle = selectedHorse ? `${selectedHorse.horse_name} (${selectedHorse.country_code})` : '';
-  const previewDetails = selectedHorse ? `${offeringTitle}, ${ageName} ${selectedHorse.sex}` : '';
-  const horseColour = selectedHorse ? `${selectedHorse.colour} ${selectedHorse.sex}` : '';
-  const sireName = richHorse?.pedigree?.sire_name ?? richSire?.display_name ?? selectedHorse?.sire ?? '';
-  const damName = richHorse?.pedigree?.dam_name ?? richDam?.display_name ?? selectedHorse?.dam ?? '';
-  const trainerDisplay = richTrainer
-    ? `${richTrainer.stable_name} (${richTrainer.contact_name})`
-    : autoTrainer
-      ? `${autoTrainer.stable_name} (${autoTrainer.contact_name})`
-      : '';
-  const detailSummary = selectedHorse ? buildDetailSummary({
-    colour: selectedHorse.colour, sex: selectedHorse.sex, foalingDate,
-    sireName, damName, trainerDisplay, location, leaseDuration,
-    microchip: richHorse?.microchip ?? selectedHorse?.microchip_number ?? '',
-  }) : '';
+    const investorPct = offering?.investor_share_percent ?? 75;
+    setInvestorSplit(`${investorPct}%`);
 
-  // Static boilerplate
-  const staticIntro = boilerplate.intro_template.replace(/\{horseName\}/g, selectedHorse?.horse_name ?? '{horseName}');
-  const earningsSentence = boilerplate.earnings_sentence;
-  const pedigreeIntroBody = boilerplate.pedigree_intro_body.replace(/\{horseName\}/g, selectedHorse?.horse_name ?? '{horseName}');
+    setVariations('');
+  }, [horses]);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const goNext = () => setStep((s) => Math.min(s + 1, 5));
@@ -507,23 +473,19 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
     const slug = selectedHorse ? slugFromSeedHorse(selectedHorse) : 'unknown';
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const snapshot = {
-      templateId: 'ds-listing',
+      templateId: 'syndicate-agreement',
       horseId: selectedHorseId,
       horseName: selectedHorse?.horse_name ?? '',
       timestamp: new Date().toISOString(),
       feedback: feedbackText,
       fields: {
-        loveracingUrl,
-        horseIntro,
-        narrativeHeadline,
-        narrativeBody,
-        sireDescription,
-        damDescription,
-        trainerBio,
-        leaseDuration,
-        location,
-        racingRecord,
-        searchTerms,
+        agreementDate,
+        leaseDurationMonths,
+        numTokens,
+        leasePercent,
+        leaseStartDate,
+        investorSplit,
+        variations,
       },
     };
     const json = JSON.stringify(snapshot, null, 2);
@@ -531,7 +493,7 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ds-listing-${slug}-${ts}.json`;
+    a.download = `syndicate-agreement-${slug}-${ts}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -541,59 +503,34 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
     if (!selectedHorse) return;
     setGenerating(true);
     try {
-      const { buildDsListingDocxBlob } = await import('../lib/lazyExports');
-      const blob = await buildDsListingDocxBlob({
-        horseName: selectedHorse.horse_name,
-        countryCode: selectedHorse.country_code,
-        foalingDate,
-        sex: selectedHorse.sex,
-        colour: selectedHorse.colour,
-        microchip: richHorse?.microchip ?? selectedHorse.microchip_number ?? '',
-        breedingUrl: richHorse?.breedingUrl ?? selectedHorse.breeding_url ?? '',
-        sireName,
-        damName,
-        sireDisplayName: richSire?.display_name ?? sireName,
-        damDisplayName: richDam?.display_name ?? damName,
-        sireDescription,
-        damDescription,
-        trainerName: richTrainer?.trainer_name ?? autoTrainer?.trainer_name ?? '',
-        stableName: richTrainer?.stable_name ?? autoTrainer?.stable_name ?? '',
-        contactName: richTrainer?.contact_name ?? autoTrainer?.contact_name ?? '',
-        trainerBio,
-        trainerLocation: location,
-        trainerFullAddress: richTrainer?.full_address ?? location,
-        horseIntro,
-        narrativeHeadline,
-        narrativeBody,
-        earningsSentence,
-        racingRecord,
-        leaseDuration,
-        leaseStartDate: richHorse?.offering?.start_date ?? '',
-        leaseEndDate: richHorse?.offering?.end_date ?? '',
-        searchTerms,
-        detailSummary,
-        offeringTitle,
-        previewDetails,
-        horseColour,
-        horseDOB: horseDOBFormatted,
-        ageName,
-        pedigreeIntroBody,
-        boilerplate: {
-          why_tokenise_heading: boilerplate.why_tokenise_heading,
-          why_tokenise_body: boilerplate.why_tokenise_body,
-          pedigree_intro: boilerplate.pedigree_intro,
-          asset_type: boilerplate.asset_type,
-          promoted_default: boilerplate.promoted_default,
-        },
-        races: richHorse?.races ?? [],
-        currentStatus: richHorse?.narrative?.current_status ?? racingRecord,
-      });
+      const { buildSyndicateAgreementDocxBlob } = await import('../lib/lazyExports');
+
+      const payload: SyndicateAgreementPayload = {
+        syndicateName,
+        horseName,
+        agreementDate: formatDateDMY(agreementDate),
+        countryCode: horseCountryCode,
+        leaseDurationMonths,
+        numTokens,
+        percentPerToken,
+        leasePercent,
+        leaseStartDate: leaseStartDate ? formatDateDMY(leaseStartDate) : '',
+        leaseEndDate: leaseEndDate ? formatDateDMY(leaseEndDate) : '',
+        investorSplit,
+        ownerSplit,
+        staticClauseBody: STATIC_CLAUSE_BODY,
+        signatoryName: SIGNATORY_NAME,
+        signatoryTitle: SIGNATORY_TITLE,
+        variations,
+      };
+
+      const blob = await buildSyndicateAgreementDocxBlob(payload);
 
       // Trigger download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${richHorse?.slug ?? slugFromSeedHorse(selectedHorse)}-DS-listing.docx`;
+      a.download = `syndicate-agreement-${richHorse?.slug ?? slugFromSeedHorse(selectedHorse)}.docx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -609,14 +546,22 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
       onGenerate({
         horse: selectedHorse,
         richHorse,
-        richSire,
-        richDam,
-        richTrainer,
-        horseIntro, narrativeHeadline, narrativeBody,
-        sireDescription, damDescription, trainerBio,
-        leaseDuration, location, racingRecord, searchTerms,
-        detailSummary, offeringTitle, previewDetails, horseColour,
-        horseDOB: horseDOBFormatted, ageName,
+        syndicateName,
+        horseName,
+        agreementDate,
+        countryCode: horseCountryCode,
+        leaseDurationMonths,
+        numTokens,
+        percentPerToken,
+        leasePercent,
+        leaseStartDate,
+        leaseEndDate,
+        investorSplit,
+        ownerSplit,
+        staticClauseBody: STATIC_CLAUSE_BODY,
+        signatoryName: SIGNATORY_NAME,
+        signatoryTitle: SIGNATORY_TITLE,
+        variations,
       });
     } catch (err) {
       console.error('Failed to generate .docx:', err);
@@ -625,12 +570,10 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
       setGenerating(false);
     }
   }, [
-    selectedHorse, richHorse, richSire, richDam, richTrainer, autoTrainer,
-    foalingDate, sireName, damName, sireDescription, damDescription,
-    trainerBio, location, horseIntro, narrativeHeadline, narrativeBody,
-    earningsSentence, racingRecord, leaseDuration, searchTerms,
-    detailSummary, offeringTitle, previewDetails, horseColour,
-    horseDOBFormatted, ageName, pedigreeIntroBody, onGenerate, generatedOnce,
+    selectedHorse, richHorse, syndicateName, horseName, agreementDate,
+    horseCountryCode, leaseDurationMonths, numTokens, percentPerToken,
+    leasePercent, leaseStartDate, leaseEndDate, investorSplit, ownerSplit,
+    variations, onGenerate, generatedOnce,
   ]);
 
   // ─── Render steps ──────────────────────────────────────────────────────────
@@ -645,22 +588,11 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
               <FieldLabel>Select Horse</FieldLabel>
               <select value={selectedHorseId} onChange={(e) => handleHorseChange(e.target.value)}
                 style={{ width: '100%', boxSizing: 'border-box', borderRadius: '0.375rem', border: '1px solid #e2e8f0', padding: '0.5rem 0.625rem', fontSize: '0.875rem', color: selectedHorseId ? '#0f172a' : '#94a3b8', backgroundColor: '#ffffff', outline: 'none' }}>
-                <option value="">— Select a horse —</option>
+                <option value="">{'\u2014'} Select a horse {'\u2014'}</option>
                 {horses.map((h) => (
                   <option key={h.horse_id} value={h.horse_id}>{h.horse_name} ({h.country_code})</option>
                 ))}
               </select>
-            </div>
-            <div style={{ marginBottom: '0.875rem' }}>
-              <FieldLabel>Or enter loveracing.nz URL</FieldLabel>
-              <div style={{ display: 'flex', gap: '0.375rem' }}>
-                <input type="url" value={loveracingUrl} onChange={(e) => setLoveracingUrl(e.target.value)}
-                  placeholder="https://loveracing.nz/Breeding/..."
-                  style={{ flex: 1, borderRadius: '0.375rem', border: '1px solid #e2e8f0', padding: '0.5rem 0.625rem', fontSize: '0.875rem', color: '#0f172a', outline: 'none' }} />
-                <button onClick={() => alert('Loveracing.nz fetch will be wired in a future update. For now, select a horse from the dropdown.')}
-                  className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-                  style={{ flexShrink: 0 }}>Fetch</button>
-              </div>
             </div>
             {selectedHorse ? (
               <div style={{ borderRadius: '0.5rem', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', padding: '0.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
@@ -669,7 +601,7 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
                 <InfoPill label="Foaling Date" value={selectedHorse.foaling_date} />
                 <InfoPill label="Sex" value={selectedHorse.sex} />
                 <InfoPill label="Colour" value={selectedHorse.colour} />
-                <InfoPill label="Microchip" value={richHorse?.microchip ?? selectedHorse.microchip_number} />
+                <InfoPill label="Microchip" value={microchipNumber} />
                 <InfoPill label="Sire" value={sireName} />
                 <InfoPill label="Dam" value={damName} />
                 {ageName && <InfoPill label="Age" value={ageName} />}
@@ -683,7 +615,7 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
           </SectionCard>
         </div>
 
-        {/* Right: Counterparties */}
+        {/* Right: Counterparties + Syndicate Identity */}
         <div>
           <SectionCard title="Counterparties">
             <div style={{ marginBottom: '0.875rem' }}>
@@ -703,7 +635,6 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
                 <InfoPill label="Stable" value={richTrainer?.stable_name ?? autoTrainer?.stable_name ?? ''} />
                 <InfoPill label="Contact" value={richTrainer?.contact_name ?? autoTrainer?.contact_name ?? ''} />
                 <InfoPill label="Location" value={richTrainer?.location ?? autoTrainer?.notes ?? ''} />
-                {richTrainer?.bio && <InfoPill label="Bio" value={`${richTrainer.bio.slice(0, 80)}...`} />}
               </div>
             ) : (
               <div style={{ borderRadius: '0.5rem', border: '1px dashed #e2e8f0', backgroundColor: '#f8fafc', padding: '1.25rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.8125rem' }}>
@@ -712,195 +643,140 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
             )}
           </SectionCard>
 
+          {/* Syndicate Identity (derived) */}
+          {selectedHorse && (
+            <SectionCard title="Syndicate Identity" badge="DERIVED">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.625rem' }}>
+                <InfoPill label="Syndicate Name" value={syndicateName} />
+                <InfoPill label="Country Code" value={horseCountryCode} />
+              </div>
+            </SectionCard>
+          )}
+
           {/* Offering summary (from rich JSON) */}
           {richHorse?.offering && (
             <SectionCard title="Offering Data" badge="FROM SSOT">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-                <InfoPill label="Lease Duration" value={`${richHorse.offering.duration_months ?? richHorse.offering.leaseDurationMonths ?? '—'} months`} />
+                <InfoPill label="Lease Duration" value={`${richHorse.offering.duration_months ?? richHorse.offering.leaseDurationMonths ?? '\u2014'} months`} />
                 <InfoPill label="Location" value={richHorse.offering.location ?? ''} />
                 {richHorse.offering.token_count && <InfoPill label="Tokens" value={String(richHorse.offering.token_count)} />}
-                {richHorse.offering.token_price_nzd && <InfoPill label="Token Price" value={`$${richHorse.offering.token_price_nzd}`} />}
+                {richHorse.offering.percent_leased && <InfoPill label="Lease %" value={`${richHorse.offering.percent_leased}%`} />}
                 {richHorse.offering.investor_share_percent && <InfoPill label="Investor Share" value={`${richHorse.offering.investor_share_percent}%`} />}
               </div>
             </SectionCard>
           )}
         </div>
       </div>
-
-      {selectedHorse && (
-        <SectionCard title="Auto-Filled from SSOT" badge="READ ONLY">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.875rem' }}>
-            <InfoPill label="Horse Display" value={`${selectedHorse.horse_name} (${selectedHorse.country_code}) ${foalingYear}`} />
-            <InfoPill label="Microchip" value={richHorse?.microchip ?? selectedHorse.microchip_number} />
-            <div>
-              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.125rem' }}>Breeding URL</span>
-              {(richHorse?.breedingUrl ?? selectedHorse.breeding_url) ? (
-                <a href={richHorse?.breedingUrl ?? selectedHorse.breeding_url} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: '0.875rem', color: '#2563eb', textDecoration: 'underline', wordBreak: 'break-all' }}>
-                  {richHorse?.breedingUrl ?? selectedHorse.breeding_url}
-                </a>
-              ) : (
-                <span style={{ fontSize: '0.875rem', color: '#cbd5e1' }}>—</span>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-      )}
     </div>
   );
 
   const renderStep2 = () => (
     <div>
-      <SectionCard title="Horse Introduction">
-        <ReadOnlyGrey>{staticIntro}</ReadOnlyGrey>
-        <TextareaField
-          label="Horse-specific Introduction Paragraph (Input)"
-          value={horseIntro}
-          onChange={setHorseIntro}
-          placeholder={selectedHorse ? `e.g. ${selectedHorse.horse_name} (${selectedHorse.country_code}) is a New Zealand-bred ${ageName} ${selectedHorse.sex} by ${sireName}, trained by...` : 'A unique paragraph introducing this horse, its breeding, and training situation.'}
-          rows={4}
-          note={richHorse?.narrative?.horse_intro ? 'Pre-filled from SSOT horse profile. Edit as needed.' : undefined}
-        />
+      <SectionCard title="Agreement Details">
+        <InputField label="Agreement Date" value={agreementDate} onChange={setAgreementDate} type="date"
+          note="Date of the syndicate agreement. Defaults to today." />
+        <InputField label="Syndicate Name" value={syndicateName} readOnly
+          note="Derived: Horse Name + ' Syndicate'" />
       </SectionCard>
 
-      <SectionCard title="Horse Narrative">
-        <InputField label="Narrative Headline" value={narrativeHeadline} onChange={setNarrativeHeadline}
-          placeholder="e.g. Presence, Balance, and Pedigree"
-          note={richHorse?.narrative?.headline ? 'Pre-filled from SSOT.' : undefined} />
-        <TextareaField label="Narrative Body" value={narrativeBody} onChange={setNarrativeBody}
-          placeholder="1-2 paragraphs describing the horse's physical attributes, pedigree highlights, and training status." rows={6}
-          note={richHorse?.narrative?.body ? 'Pre-filled from SSOT horse profile. Edit as needed.' : undefined} />
-        <ReadOnlyGrey>{earningsSentence}</ReadOnlyGrey>
+      <SectionCard title="Commercial Terms">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <InputField label="Lease Duration (Months)" value={leaseDurationMonths} onChange={(v) => setLeaseDurationMonths(Number(v) || 0)} type="number"
+            note={richHorse?.offering?.duration_months ? 'Pre-filled from SSOT offering data.' : undefined} />
+          <InputField label="Number of Tokens / Shares" value={numTokens} onChange={(v) => setNumTokens(Number(v) || 0)} type="number"
+            note={richHorse?.offering?.token_count ? 'Pre-filled from SSOT offering data.' : undefined} />
+        </div>
+        <InputField label="Percentage Per Token" value={percentPerToken} readOnly
+          note="Derived: 100 / Number of Tokens" />
+        <InputField label="Lease Percentage of Horse" value={leasePercent} onChange={setLeasePercent}
+          placeholder="e.g. 50%"
+          note={richHorse?.offering?.percent_leased ? 'Pre-filled from SSOT offering data.' : undefined} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <InputField label="Lease Start Date" value={leaseStartDate} onChange={setLeaseStartDate} type="date"
+            note={richHorse?.offering?.start_date ? 'Pre-filled from SSOT.' : undefined} />
+          <InputField label="Lease End Date" value={leaseEndDate ? formatDateDMY(leaseEndDate) : ''} readOnly
+            note="Derived: Lease Start Date + Lease Duration Months" />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <InputField label="Investor Revenue Split %" value={investorSplit} onChange={setInvestorSplit}
+            placeholder="e.g. 75%"
+            note={richHorse?.offering?.investor_share_percent ? 'Pre-filled from SSOT offering data.' : undefined} />
+          <InputField label="Owner Revenue Split %" value={ownerSplit} readOnly
+            note="Derived: 100 - Investor Split" />
+        </div>
       </SectionCard>
 
-      <SectionCard title="Pedigree Descriptions" badge="REUSABLE">
-        <TextareaField
-          label={`Sire Description — ${richSire?.display_name ?? sireName}`}
-          value={sireDescription} onChange={setSireDescription}
-          placeholder="Enter sire description or select from saved sire profiles..." rows={4}
-          note={richSire?.description ? 'Pre-filled from SSOT sire profile.' : undefined} />
-        <TextareaField
-          label={`Dam Description — ${richDam?.display_name ?? damName}`}
-          value={damDescription} onChange={setDamDescription}
-          placeholder="Enter dam description or select from saved dam profiles..." rows={4}
-          note={richDam?.description ? 'Pre-filled from SSOT dam profile.' : undefined} />
-      </SectionCard>
-
-      <SectionCard title="Trainer Bio" badge="REUSABLE">
-        <TextareaField
-          label={`Trainer Bio — ${richTrainer?.trainer_name ?? autoTrainer?.trainer_name ?? ''}`}
-          value={trainerBio} onChange={setTrainerBio}
-          placeholder="Select a saved trainer profile or enter manually..." rows={5}
-          note={richTrainer?.bio ? 'Pre-filled from SSOT trainer profile.' : 'Trainer bios are reusable — saved content will be available for future horses.'} />
+      <SectionCard title="Variations">
+        <TextareaField label="Variations to Standard Terms" value={variations} onChange={setVariations}
+          placeholder="Any variations to standard agreement terms (leave blank for n/a)." rows={3} />
       </SectionCard>
     </div>
   );
 
   const renderStep3 = () => (
     <div>
-      <SectionCard title="Offering Details">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <InputField label="Lease Duration (months)" value={leaseDuration} onChange={(v) => setLeaseDuration(Number(v))} type="number"
-            note={richHorse?.offering ? 'Pre-filled from SSOT offering data.' : undefined} />
-          <InputField label="Location" value={location} onChange={setLocation} placeholder="e.g. Wexford Stables, Matamata, New Zealand"
-            note={richHorse?.offering?.location ? 'Pre-filled from SSOT.' : undefined} />
-        </div>
-        <InputField label="Racing Record" value={racingRecord} onChange={setRacingRecord}
-          placeholder="e.g. Early Career / Trialing or 3:1-0-1 ($12,450)"
-          note={richHorse?.racingRecord ? 'Pre-filled from SSOT.' : undefined} />
-      </SectionCard>
+      <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '1.25rem' }}>
+        Review all sections before generating. Fields shown as {'\u201c\u2014\u201d'} or "(empty)" were left blank.
+      </p>
+      <ReviewBlock title="Agreement Header" rows={[
+        { label: 'Syndicate Name', value: syndicateName },
+        { label: 'Horse Name', value: horseName },
+        { label: 'Country Code', value: horseCountryCode },
+        { label: 'Agreement Date', value: formatDateDMY(agreementDate) },
+      ]} />
+      <ReviewBlock title="Variable Clause Fields" rows={[
+        { label: 'Horse (Clause 2)', value: `${horseName} (${horseCountryCode})` },
+        { label: 'Lease Duration', value: `${leaseDurationMonths} months` },
+        { label: 'Number of Tokens', value: String(numTokens) },
+        { label: 'Percent Per Token', value: percentPerToken },
+        { label: 'Lease Percentage', value: leasePercent },
+        { label: 'Lease Start Date', value: leaseStartDate ? formatDateDMY(leaseStartDate) : '' },
+        { label: 'Lease End Date', value: leaseEndDate ? formatDateDMY(leaseEndDate) : '' },
+        { label: 'Investor Split', value: investorSplit },
+        { label: 'Owner Split', value: ownerSplit },
+        { label: 'Variations', value: variations },
+      ]} />
 
-      <SectionCard title="Meta Keys">
-        <InputField label="Search Terms (auto-generated)" value={searchTerms} onChange={setSearchTerms}
-          placeholder="Auto-generated from horse name, sire, trainer, location"
-          note="Edit to add additional keywords. Separate with commas." />
-        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.875rem', marginTop: '0.25rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>
-            Derived Fields (read-only — generated from data above)
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <InfoPill label="Offering Title" value={offeringTitle} />
-            <InfoPill label="Preview Details" value={previewDetails} />
-            <InfoPill label="Trainer (meta)" value={richTrainer?.contact_name ?? autoTrainer?.contact_name ?? ''} />
-            <InfoPill label="Horse Type" value={selectedHorse?.sex ?? ''} />
-            <InfoPill label="Horse Colour" value={horseColour} />
-            <InfoPill label="Horse DOB" value={horseDOBFormatted} />
-            <InfoPill label="Age" value={ageName} />
-            <InfoPill label="Asset Type" value={boilerplate.asset_type} />
-            <InfoPill label="Promoted" value={boilerplate.promoted_default} />
-            <InfoPill label="Property Location" value={location} />
-          </div>
-          <div style={{ marginTop: '0.875rem' }}>
-            <FieldLabel>Detail Summary (derived)</FieldLabel>
-            <div style={{ borderRadius: '0.375rem', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', padding: '0.625rem 0.75rem', fontSize: '0.8125rem', color: '#94a3b8', lineHeight: 1.55, minHeight: '2.5rem' }}>
-              {detailSummary || <span style={{ color: '#cbd5e1' }}>Will be generated from fields above</span>}
-            </div>
-          </div>
-        </div>
-      </SectionCard>
+      <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem', paddingBottom: '0.375rem', borderBottom: '1px solid #f1f5f9' }}>Static Boilerplate Clauses</div>
+        <ReadOnlyGrey>{STATIC_CLAUSE_BODY}</ReadOnlyGrey>
+      </div>
+
+      <ReviewBlock title="Signature Block" rows={[
+        { label: 'Signatory Name', value: SIGNATORY_NAME },
+        { label: 'Signatory Title', value: SIGNATORY_TITLE },
+      ]} />
     </div>
   );
 
   const renderStep4 = () => (
     <div>
       <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '1.25rem' }}>
-        Review all sections before generating. Fields shown as "—" or "(empty)" were left blank.
+        All data has been reviewed. Click "Generate & Download .docx" to produce the Syndicate Agreement document.
       </p>
-      <ReviewBlock title="Horse Identity" rows={[
-        { label: 'Horse', value: offeringTitle },
-        { label: 'Foaling Year', value: foalingYear },
-        { label: 'Age', value: ageName },
-        { label: 'Sex', value: selectedHorse?.sex ?? '' },
-        { label: 'Colour', value: selectedHorse?.colour ?? '' },
-        { label: 'Sire', value: sireName },
-        { label: 'Dam', value: damName },
-        { label: 'Microchip', value: richHorse?.microchip ?? selectedHorse?.microchip_number ?? '' },
-        { label: 'Breeding URL', value: richHorse?.breedingUrl ?? selectedHorse?.breeding_url ?? '' },
-      ]} />
-      <ReviewBlock title="Counterparties" rows={[
-        { label: 'Trainer', value: richTrainer?.trainer_name ?? autoTrainer?.trainer_name ?? '' },
-        { label: 'Stable', value: richTrainer?.stable_name ?? autoTrainer?.stable_name ?? '' },
-        { label: 'Contact', value: richTrainer?.contact_name ?? autoTrainer?.contact_name ?? '' },
-        { label: 'Location', value: location },
-      ]} />
-      <ReviewBlock title="Narrative Content" rows={[
-        { label: 'Static Intro', value: staticIntro },
-        { label: 'Horse Intro', value: horseIntro },
-        { label: 'Headline', value: narrativeHeadline },
-        { label: 'Narrative Body', value: narrativeBody },
-        { label: 'Earnings', value: earningsSentence },
-        { label: 'Sire Description', value: sireDescription },
-        { label: 'Dam Description', value: damDescription },
-        { label: 'Trainer Bio', value: trainerBio },
-      ]} />
-      <ReviewBlock title="Offering Details & Meta" rows={[
-        { label: 'Lease Duration', value: `${leaseDuration} months` },
-        { label: 'Racing Record', value: racingRecord },
-        { label: 'Offering Title', value: offeringTitle },
-        { label: 'Preview Details', value: previewDetails },
-        { label: 'Horse Colour', value: horseColour },
-        { label: 'Horse DOB', value: horseDOBFormatted },
-        { label: 'Search Terms', value: searchTerms },
-        { label: 'Detail Summary', value: detailSummary },
-        { label: 'Asset Type', value: boilerplate.asset_type },
-        { label: 'Promoted', value: boilerplate.promoted_default },
+      <ReviewBlock title="Summary" rows={[
+        { label: 'Syndicate Name', value: syndicateName },
+        { label: 'Horse', value: `${horseName} (${horseCountryCode})` },
+        { label: 'Agreement Date', value: formatDateDMY(agreementDate) },
+        { label: 'Tokens', value: `${numTokens} @ ${percentPerToken} each` },
+        { label: 'Lease', value: `${leaseDurationMonths} months from ${leaseStartDate ? formatDateDMY(leaseStartDate) : 'TBD'}` },
+        { label: 'Lease %', value: leasePercent },
+        { label: 'Revenue Split', value: `Investors: ${investorSplit} / Owner: ${ownerSplit}` },
+        { label: 'Signatory', value: `${SIGNATORY_NAME}, ${SIGNATORY_TITLE}` },
       ]} />
     </div>
   );
 
   // ── Editable review field (Step 5) ────────────────────────────────────────
   const editableFieldMap: Record<string, { get: () => string; set: (v: string) => void; multiline?: boolean }> = useMemo(() => ({
-    'Horse Introduction': { get: () => horseIntro, set: setHorseIntro, multiline: true },
-    'Narrative Headline': { get: () => narrativeHeadline, set: setNarrativeHeadline },
-    'Narrative Body': { get: () => narrativeBody, set: setNarrativeBody, multiline: true },
-    'Sire Description': { get: () => sireDescription, set: setSireDescription, multiline: true },
-    'Dam Description': { get: () => damDescription, set: setDamDescription, multiline: true },
-    'Trainer Bio': { get: () => trainerBio, set: setTrainerBio, multiline: true },
-    'Racing Record': { get: () => racingRecord, set: setRacingRecord },
-    'Search Terms': { get: () => searchTerms, set: setSearchTerms },
-    'Location': { get: () => location, set: setLocation },
-    'Lease Duration': { get: () => String(leaseDuration), set: (v) => setLeaseDuration(Number(v) || 0) },
-  }), [horseIntro, narrativeHeadline, narrativeBody, sireDescription, damDescription, trainerBio, racingRecord, searchTerms, location, leaseDuration]);
+    'Agreement Date': { get: () => agreementDate, set: setAgreementDate },
+    'Lease Duration Months': { get: () => String(leaseDurationMonths), set: (v) => setLeaseDurationMonths(Number(v) || 0) },
+    'Number of Tokens': { get: () => String(numTokens), set: (v) => setNumTokens(Number(v) || 0) },
+    'Lease Percent': { get: () => leasePercent, set: setLeasePercent },
+    'Lease Start Date': { get: () => leaseStartDate, set: setLeaseStartDate },
+    'Investor Split': { get: () => investorSplit, set: setInvestorSplit },
+    'Variations': { get: () => variations, set: setVariations, multiline: true },
+  }), [agreementDate, leaseDurationMonths, numTokens, leasePercent, leaseStartDate, investorSplit, variations]);
 
   function EditableReviewRow({ label, value, fieldKey }: { label: string; value: string; fieldKey?: string }) {
     const editable = fieldKey ? editableFieldMap[fieldKey] : undefined;
@@ -964,47 +840,43 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
         <span style={{ fontSize: '0.8125rem', color: '#15803d' }}>Review the content below. Click any editable field to make changes, then re-generate.</span>
       </div>
 
-      <SectionCard title="Section 1: Offering Header" badge="DERIVED">
-        <EditableReviewRow label="Offering Title" value={offeringTitle} />
-        <EditableReviewRow label="Preview Details" value={previewDetails} />
+      <SectionCard title="Agreement Header" badge="DERIVED">
+        <EditableReviewRow label="Syndicate Name" value={syndicateName} />
+        <EditableReviewRow label="Horse Name" value={horseName} />
+        <EditableReviewRow label="Country Code" value={horseCountryCode} />
+        <EditableReviewRow label="Agreement Date" value={formatDateDMY(agreementDate)} fieldKey="Agreement Date" />
       </SectionCard>
 
-      <SectionCard title="Section 2: Full Details (Marketing Copy)">
-        <EditableReviewRow label="Static Intro" value={staticIntro} />
-        <EditableReviewRow label="Horse Intro" value={horseIntro} fieldKey="Horse Introduction" />
-        <EditableReviewRow label="Headline" value={narrativeHeadline} fieldKey="Narrative Headline" />
-        <EditableReviewRow label="Narrative Body" value={narrativeBody} fieldKey="Narrative Body" />
-        <EditableReviewRow label="Earnings" value={earningsSentence} />
-        <EditableReviewRow label="Trainer Bio" value={trainerBio} fieldKey="Trainer Bio" />
+      <SectionCard title="Commercial Terms">
+        <EditableReviewRow label="Lease Duration" value={`${leaseDurationMonths} months`} fieldKey="Lease Duration Months" />
+        <EditableReviewRow label="Number of Tokens" value={String(numTokens)} fieldKey="Number of Tokens" />
+        <EditableReviewRow label="Percent Per Token" value={percentPerToken} />
+        <EditableReviewRow label="Lease Percentage" value={leasePercent} fieldKey="Lease Percent" />
+        <EditableReviewRow label="Lease Start Date" value={leaseStartDate ? formatDateDMY(leaseStartDate) : ''} fieldKey="Lease Start Date" />
+        <EditableReviewRow label="Lease End Date" value={leaseEndDate ? formatDateDMY(leaseEndDate) : ''} />
+        <EditableReviewRow label="Investor Split" value={investorSplit} fieldKey="Investor Split" />
+        <EditableReviewRow label="Owner Split" value={ownerSplit} />
+        <EditableReviewRow label="Variations" value={variations} fieldKey="Variations" />
       </SectionCard>
 
-      <SectionCard title="Section 3: Pedigree Block">
-        <EditableReviewRow label="Sire Description" value={sireDescription} fieldKey="Sire Description" />
-        <EditableReviewRow label="Dam Description" value={damDescription} fieldKey="Dam Description" />
+      <SectionCard title="Static Boilerplate Clauses" badge="STATIC">
+        <ReadOnlyGrey>{STATIC_CLAUSE_BODY}</ReadOnlyGrey>
       </SectionCard>
 
-      <SectionCard title="Section 4: Meta Keys">
-        <EditableReviewRow label="Racing Record" value={racingRecord} fieldKey="Racing Record" />
-        <EditableReviewRow label="Trainer" value={richTrainer?.trainer_name ?? autoTrainer?.trainer_name ?? ''} />
-        <EditableReviewRow label="Horse Type" value={selectedHorse?.sex ?? ''} />
-        <EditableReviewRow label="Location" value={location} fieldKey="Location" />
-        <EditableReviewRow label="Search Terms" value={searchTerms} fieldKey="Search Terms" />
-        <EditableReviewRow label="Horse Colour" value={horseColour} />
-        <EditableReviewRow label="Horse DOB" value={horseDOBFormatted} />
-        <EditableReviewRow label="Asset Type" value={boilerplate.asset_type} />
-        <EditableReviewRow label="Lease Duration" value={`${leaseDuration} months`} fieldKey="Lease Duration" />
-        <EditableReviewRow label="Detail Summary" value={detailSummary} />
+      <SectionCard title="Signature Block" badge="STATIC">
+        <EditableReviewRow label="Signatory Name" value={SIGNATORY_NAME} />
+        <EditableReviewRow label="Signatory Title" value={SIGNATORY_TITLE} />
       </SectionCard>
 
       {/* Step 5 (Bonus): Feedback / Issue Flagging */}
       <SectionCard title="Review Feedback" badge="OPTIONAL">
         <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.625rem' }}>
-          Flag any issues with this listing for the team to review. This feedback will be attached to the document record.
+          Flag any issues with this syndicate agreement for the team to review. This feedback will be attached to the document record.
         </p>
         <textarea
           value={feedbackText}
           onChange={(e) => setFeedbackText(e.target.value)}
-          placeholder="e.g. Sire description needs updating — recent Group 1 win not included. Trainer bio mentions old stable location."
+          placeholder="e.g. Investor split needs confirmation. Lease start date is tentative pending trainer availability."
           rows={4}
           style={{ width: '100%', boxSizing: 'border-box', borderRadius: '0.375rem', border: '1px solid #e2e8f0', padding: '0.625rem 0.75rem', fontSize: '0.875rem', color: '#0f172a', outline: 'none', resize: 'vertical', lineHeight: 1.55, backgroundColor: feedbackText ? '#fefce8' : '#ffffff' }}
         />
@@ -1028,19 +900,19 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.125rem' }}>
-              New DS Listing — Step {step} of 5: {STEP_NAMES[step - 1]}
+              Syndicate Agreement {'\u2014'} Step {step} of 5: {STEP_NAMES[step - 1]}
             </h2>
             <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>
               {step === 1 && 'Select the horse and verify counterparties auto-filled from SSOT.'}
-              {step === 2 && 'Write or paste narrative content for each section. Reusable profiles are pre-filled where available.'}
-              {step === 3 && 'Confirm offering details and check the derived meta key values.'}
-              {step === 4 && 'Review all data. Click Generate to produce the .docx file.'}
+              {step === 2 && 'Configure agreement terms, commercial details, and any variations.'}
+              {step === 3 && 'Review all clauses and data before generating the agreement document.'}
+              {step === 4 && 'Review the summary. Click Generate to produce the .docx file.'}
               {step === 5 && 'Review the generated document. Click fields to edit, then re-generate if needed.'}
             </p>
           </div>
           <button onClick={onClose}
             style={{ flexShrink: 0, width: '2rem', height: '2rem', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', fontWeight: 400, lineHeight: 1 }}
-            aria-label="Close wizard">\u00d7</button>
+            aria-label="Close wizard">{'\u00d7'}</button>
         </div>
 
         <StepIndicator current={step} />
@@ -1078,7 +950,7 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
               </>
             ) : step === 4 ? (
               <>
-                <button onClick={() => alert('Draft saved — save functionality will be wired in a future update.')}
+                <button onClick={() => alert('Draft saved \u2014 save functionality will be wired in a future update.')}
                   className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100">
                   Save Draft
                 </button>
@@ -1092,7 +964,7 @@ export default function DSListingWizard({ horses, trainers, onClose, onGenerate 
               <button onClick={goNext} disabled={step === 1 && !selectedHorseId}
                 className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100"
                 style={{ opacity: step === 1 && !selectedHorseId ? 0.4 : 1, cursor: step === 1 && !selectedHorseId ? 'not-allowed' : 'pointer' }}>
-                Next \u2192
+                Next {'\u2192'}
               </button>
             )}
           </div>
