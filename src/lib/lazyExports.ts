@@ -114,6 +114,231 @@ export const buildInvestorUpdateDocxBlob = async (payload: InvestorUpdatePayload
   return Packer.toBlob(doc);
 };
 
+// ─── DS Listing Document Builder ──────────────────────────────────────────────
+
+type DsListingPayload = {
+  horseName: string;
+  countryCode: string;
+  foalingDate: string;
+  sex: string;
+  colour: string;
+  microchip: string;
+  breedingUrl: string;
+  sireName: string;
+  damName: string;
+  sireDisplayName: string;
+  damDisplayName: string;
+  sireDescription: string;
+  damDescription: string;
+  trainerName: string;
+  stableName: string;
+  contactName: string;
+  trainerBio: string;
+  trainerLocation: string;
+  trainerFullAddress: string;
+  horseIntro: string;
+  narrativeHeadline: string;
+  narrativeBody: string;
+  earningsSentence: string;
+  racingRecord: string;
+  leaseDuration: number;
+  leaseStartDate: string;
+  leaseEndDate: string;
+  searchTerms: string;
+  detailSummary: string;
+  offeringTitle: string;
+  previewDetails: string;
+  horseColour: string;
+  horseDOB: string;
+  ageName: string;
+  pedigreeIntroBody: string;
+  boilerplate: {
+    why_tokenise_heading: string;
+    why_tokenise_body: string;
+    pedigree_intro: string;
+    asset_type: string;
+    promoted_default: string;
+  };
+  races: Array<{ date?: string; course?: string; position?: string; jockey?: string; replay_url?: string }>;
+  currentStatus: string;
+};
+
+export const buildDsListingDocxBlob = async (payload: DsListingPayload): Promise<Blob> => {
+  const {
+    Document, HeadingLevel, Packer, Paragraph, TextRun,
+    AlignmentType, LevelFormat,
+    Table, TableRow, TableCell, BorderStyle, WidthType, ShadingType,
+  } = await import('docx');
+
+  const p = payload;
+  const raceCount = p.races.length;
+  const lastRace = p.races[raceCount - 1];
+  const racingRecordSummary = raceCount > 0
+    ? `${raceCount} start${raceCount > 1 ? 's' : ''}`
+    : p.racingRecord || 'Unraced — in preparation';
+
+  const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' };
+  const cellBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+  const bulletRef = 'ds-bullets';
+  const COL1 = 3200;
+  const COL2 = 5826;
+
+  function metaTable(rows: [string, string][]) {
+    return new Table({
+      width: { size: COL1 + COL2, type: WidthType.DXA },
+      columnWidths: [COL1, COL2],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({ borders: cellBorders, width: { size: COL1, type: WidthType.DXA }, shading: { fill: '2D3A4A', type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: 'Field', bold: true, color: 'FFFFFF', font: 'Calibri', size: 20 })] })] }),
+            new TableCell({ borders: cellBorders, width: { size: COL2, type: WidthType.DXA }, shading: { fill: '2D3A4A', type: ShadingType.CLEAR }, margins: { top: 60, bottom: 60, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: 'Value', bold: true, color: 'FFFFFF', font: 'Calibri', size: 20 })] })] }),
+          ],
+        }),
+        ...rows.map(([field, value], idx) =>
+          new TableRow({
+            children: [
+              new TableCell({ borders: cellBorders, width: { size: COL1, type: WidthType.DXA }, shading: { fill: idx % 2 === 0 ? 'F5F5F5' : 'FFFFFF', type: ShadingType.CLEAR }, margins: { top: 40, bottom: 40, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: field, bold: true, font: 'Calibri', size: 20 })] })] }),
+              new TableCell({ borders: cellBorders, width: { size: COL2, type: WidthType.DXA }, shading: { fill: idx % 2 === 0 ? 'F5F5F5' : 'FFFFFF', type: ShadingType.CLEAR }, margins: { top: 40, bottom: 40, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: value, font: 'Calibri', size: 20 })] })] }),
+            ],
+          }),
+        ),
+      ],
+    });
+  }
+
+  const doc = new Document({
+    numbering: {
+      config: [{
+        reference: bulletRef,
+        levels: [{
+          level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        }],
+      }],
+    },
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22 } } },
+      paragraphStyles: [
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { size: 32, bold: true, font: 'Calibri', color: '1A1A2E' },
+          paragraph: { spacing: { before: 360, after: 200 }, outlineLevel: 0 } },
+        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { size: 26, bold: true, font: 'Calibri', color: '2D3A4A' },
+          paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 1 } },
+        { id: 'Heading3', name: 'Heading 3', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+          run: { size: 24, bold: true, font: 'Calibri', color: '3D4F5F' },
+          paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 2 } },
+      ],
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 11906, height: 16838 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+        },
+      },
+      children: [
+        // SECTION 1: OFFERING HEADER
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'SECTION 1: OFFERING HEADER', bold: true })] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: 'offeringTitle: ', bold: true }), new TextRun(p.offeringTitle)] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'previewDetails: ', bold: true }), new TextRun(p.previewDetails)] }),
+
+        // SECTION 2: FULL DETAILS
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'SECTION 2: FULL DETAILS (Marketing Copy)', bold: true })] }),
+
+        // Intro
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} ${p.horseName}: Evolution Stables Next Offering` })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.horseIntro || '[MISSING: horse_intro]')] }),
+
+        // Why Tokenise (STATIC)
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} ${p.boilerplate.why_tokenise_heading}` })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.boilerplate.why_tokenise_body)] }),
+
+        // About [Horse]
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} About ${p.horseName}` })] }),
+        ...[
+          `Sex: ${p.sex}`,
+          `Age (DOB): ${p.ageName} (${p.horseDOB})`,
+          `Sire: ${p.sireName}`,
+          `Dam: ${p.damName}`,
+          `Trainer: ${p.trainerName}`,
+          `Location: ${p.trainerLocation}`,
+          `Racing Record: ${racingRecordSummary}`,
+        ].map((text) => new Paragraph({ numbering: { reference: bulletRef, level: 0 }, spacing: { after: 40 }, children: [new TextRun(text)] })),
+        new Paragraph({ spacing: { after: 120 }, children: [] }),
+
+        // Narrative
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} ${p.horseName}: ${p.narrativeHeadline || '[MISSING: headline]'}` })] }),
+        ...p.narrativeBody.split(/\n{2,}/).filter(Boolean).map((block) =>
+          new Paragraph({ spacing: { after: 200 }, children: [new TextRun(block.trim())] })
+        ),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: p.earningsSentence, italics: true })] }),
+
+        // Trainer Profile
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} Trainer Profile: ${p.trainerName} — ${p.stableName}` })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.trainerBio || '[MISSING: trainer_bio]')] }),
+
+        // SECTION 3: PEDIGREE BLOCK
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'SECTION 3: PEDIGREE BLOCK', bold: true })] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: `\u{1F539} ${p.boilerplate.pedigree_intro}` })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.pedigreeIntroBody)] }),
+
+        new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun({ text: `The Sire: ${p.sireDisplayName}`, bold: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.sireDescription || '[MISSING: sire_description]')] }),
+
+        new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun({ text: `The Dam: ${p.damDisplayName}`, bold: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.damDescription || '[MISSING: dam_description]')] }),
+
+        // SECTION 4: META KEYS
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'SECTION 4: META KEYS (Structured Data Fields)', bold: true })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: 'These are the structured data fields that populate the Tokinvest platform listing.', italics: true, color: '666666' })] }),
+
+        metaTable([
+          ['promoted', p.boilerplate.promoted_default],
+          ['horseRaceHistory', p.breedingUrl || ''],
+          ['raceDescription', p.currentStatus || racingRecordSummary],
+          ['result', lastRace?.position || 'N/A'],
+          ['numberOfRunners', String(raceCount)],
+          ['trainer', p.trainerName],
+          ['jockey', lastRace?.jockey || 'TBD'],
+          ['raceCourse', lastRace?.course || p.trainerLocation],
+          ['horseTrainer', p.trainerName],
+          ['horseType', p.sex],
+          ['propertyLocation', p.trainerFullAddress],
+          ['searchTerms', p.searchTerms],
+          ['horseColour', p.horseColour],
+          ['horseDOB', p.horseDOB],
+          ['assetType', p.boilerplate.asset_type],
+        ]),
+
+        new Paragraph({ spacing: { before: 200, after: 80 }, children: [] }),
+
+        // detailSummary sub-table
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'detailSummary' })] }),
+        metaTable([
+          ['Location', p.trainerLocation],
+          ['Trainer', p.trainerName],
+          ['Duration', `${p.leaseDuration} months${p.leaseStartDate ? ` (${p.leaseStartDate} to ${p.leaseEndDate})` : ''}`],
+          ['Sire', p.sireName],
+          ['Dam', p.damName],
+          ['Microchip', p.microchip],
+        ]),
+
+        new Paragraph({ spacing: { before: 200, after: 80 }, children: [] }),
+
+        // horsePedigree
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'horsePedigree' })] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `The Sire: ${p.sireDisplayName}`, bold: true })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [new TextRun(p.sireDescription || '[MISSING: sire_description]')] }),
+        new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: `The Dam: ${p.damDisplayName}`, bold: true })] }),
+        new Paragraph({ spacing: { after: 200 }, children: [new TextRun(p.damDescription || '[MISSING: dam_description]')] }),
+      ],
+    }],
+  });
+
+  return Packer.toBlob(doc);
+};
+
 export const downloadInvestorUpdatePdf = async (payload: InvestorUpdatePayloadLike, fileName: string): Promise<void> => {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });

@@ -31,6 +31,8 @@ import { loadSsotSeed } from './src/lib/ssot/seed-loader';
 const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
 const LeaseRoute = lazy(() => import('./src/routes/LeaseRoute'));
 const ReferenceRoute = lazy(() => import('./src/routes/ReferenceRoute'));
+const TemplateRoute = lazy(() => import('./src/routes/TemplateRoute'));
+const DSListingWizard = lazy(() => import('./src/routes/DSListingWizard'));
 
 type RouteKey =
   | 'dashboard'
@@ -1994,6 +1996,7 @@ const App: React.FC = () => {
   const [showLeaseHorseFilter, setShowLeaseHorseFilter] = useState(false);
   const [showLeaseStatusFilter, setShowLeaseStatusFilter] = useState(false);
   const [showHltWizard, setShowHltWizard] = useState(false);
+  const [showDSListingWizard, setShowDSListingWizard] = useState(false);
   const [hltStep, setHltStep] = useState(1);
   const [hltError, setHltError] = useState<string | null>(null);
   const [hltNotice, setHltNotice] = useState<string | null>(null);
@@ -3088,6 +3091,9 @@ const App: React.FC = () => {
     setHltStep(1);
     setHltError(null);
   };
+
+  const openDSListingWizard = () => setShowDSListingWizard(true);
+  const closeDSListingWizard = () => setShowDSListingWizard(false);
 
   const stepOneReady = Boolean(hltDraft.horseId && hltDraft.trainerId && hltDraft.ownerId);
   const validateStepTwo = (): string | null => {
@@ -4618,10 +4624,15 @@ const App: React.FC = () => {
                 />
               </Suspense>
             ) : null}
-            {['documentsTemplates', 'documentsGenerated', 'complianceNewZealand', 'complianceDubai', 'complianceSsot', 'complianceArchive'].includes(route) ? (
+            {route === 'documentsTemplates' ? (
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <TemplateRoute onOpenDSListingWizard={openDSListingWizard} />
+              </Suspense>
+            ) : null}
+            {['documentsGenerated', 'complianceNewZealand', 'complianceDubai', 'complianceSsot', 'complianceArchive'].includes(route) ? (
               <Suspense fallback={<RouteLoadingFallback />}>
                 <ReferenceRoute
-                  route={route as 'documentsTemplates' | 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive'}
+                  route={route as 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive'}
                   documents={seed?.documents ?? []}
                   horseById={horseById}
                   docWebHref={docWebHref}
@@ -4935,6 +4946,20 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : null}
+
+            {showDSListingWizard ? (
+              <Suspense fallback={null}>
+                <DSListingWizard
+                  horses={allHorses}
+                  trainers={allTrainers}
+                  onClose={closeDSListingWizard}
+                  onGenerate={(data) => {
+                    console.log('DS Listing data:', data);
+                    closeDSListingWizard();
+                  }}
+                />
+              </Suspense>
             ) : null}
 
             {showHorseReviewModal && horseDraft ? (

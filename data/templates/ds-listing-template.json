@@ -78,7 +78,7 @@
         { "key": "horsetrainer", "label": "Horse Trainer", "type": "text", "classification": "DERIVED", "autoFillSource": "trainer.contact_name", "required": true },
         { "key": "horsetype", "label": "Horse Type", "type": "text", "classification": "INPUT", "autoFillSource": "horse.sex", "required": true },
         { "key": "horsepedigree", "label": "Horse Pedigree", "type": "textarea", "classification": "DERIVED", "autoFillSource": "assembled from sire + dam descriptions", "required": true },
-        { "key": "propertylocaton", "label": "Property Location", "type": "text", "classification": "REUSABLE", "autoFillSource": "offering.location", "required": true },
+        { "key": "propertylocation", "label": "Property Location", "type": "text", "classification": "REUSABLE", "autoFillSource": "offering.location", "required": true },
         { "key": "searchterms", "label": "Search Terms", "type": "text", "classification": "DERIVED", "autoFillSource": "auto-generated from horse name, sire, trainer, location", "required": true },
         { "key": "detailsummary", "label": "Detail Summary", "type": "textarea", "classification": "DERIVED", "autoFillSource": "assembled from location, trainer, duration, sire, dam, microchip", "required": true },
         { "key": "horsecolour", "label": "Horse Colour", "type": "text", "classification": "INPUT", "autoFillSource": "horse.colour + ' ' + horse.sex", "required": true },
