@@ -1,0 +1,10 @@
+{
+  "template_id": "product_disclosure_statement",
+  "label": "Product Disclosure Statement",
+  "category": "documents",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/documents/product_disclosure_statement",
+  "canonical_path": "data/templates/documents/product_disclosure_statement/v1",
+  "generated_output_path": null
+}

@@ -1,0 +1,10 @@
+{
+  "template_id": "ds_data_fields",
+  "label": "DS Data Fields",
+  "category": "documents",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/documents/ds_data_fields",
+  "canonical_path": "data/templates/documents/ds_data_fields/v1",
+  "generated_output_path": null
+}

@@ -1,0 +1,48 @@
+{
+  "documents": [
+    {
+      "template_id": "hlt_issuance_termsheet",
+      "label": "HLT Issuance Term Sheet",
+      "category": "documents",
+      "current_version": "v1",
+      "status": "scaffold"
+    },
+    {
+      "template_id": "product_disclosure_statement",
+      "label": "Product Disclosure Statement",
+      "category": "documents",
+      "current_version": "v1",
+      "status": "scaffold"
+    },
+    {
+      "template_id": "syndicate_agreement",
+      "label": "Syndicate Agreement",
+      "category": "documents",
+      "current_version": "v1",
+      "status": "scaffold"
+    },
+    {
+      "template_id": "vara_whitepaper",
+      "label": "VARA Whitepaper",
+      "category": "documents",
+      "current_version": "v1",
+      "status": "scaffold"
+    },
+    {
+      "template_id": "ds_data_fields",
+      "label": "DS Data Fields",
+      "category": "documents",
+      "current_version": "v1",
+      "status": "scaffold"
+    }
+  ],
+  "comms": [
+    {
+      "template_id": "investor_updates",
+      "label": "Investor Updates",
+      "category": "comms",
+      "current_version": "v1",
+      "status": "scaffold"
+    }
+  ]
+}

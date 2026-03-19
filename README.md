@@ -36,6 +36,25 @@ This build exists to reduce document drift by deriving outputs from one canonica
 - Runtime edits are layered on top of the latest seed snapshot via browser localStorage (`ssot_local_state_v1`).
 - Generated outputs can be downloaded client-side and investor updates can be saved locally during the build phase.
 
+## Template Library Structure
+
+The template and document workflow is now explicitly local-first:
+
+- raw imports and working material live under `intake/ad_hoc/`
+- versioned canonical template definitions live under `data/templates/`
+- curated reusable knowledge lives under `data/library/`
+- canonical supporting assets live under `data/assets/`
+- generated outputs stay under `data/generated/`
+
+Current in-scope template families:
+
+- HLT Issuance Term Sheet
+- Product Disclosure Statement
+- Syndicate Agreement
+- VARA Whitepaper
+- DS Data Fields
+- Investor Updates
+
 ## Firestore Stage One
 
 The first Firestore write surface should be horse identity only:
@@ -174,6 +193,7 @@ Historical specs, archived builders, generated output, and Windows metadata file
 - `docs/architecture/CURRENT_BUILD_MAP_2026-03-11.md`: live rule map for the current build.
 - `docs/contracts/CURRENT_DATA_CONTRACT_2026-03-13.md`: active modular SSOT contract separating horse identity truth from current HLT associations, lease terms, and derived HLT assembly.
 - `docs/contracts/FIRESTORE_WRITE_MAP_2026-03-13.md`: current-to-target mapping from local save actions to canonical and derived Firestore write surfaces, aligned to the modular qualification model.
+- `docs/decisions/ADR-001-local-first-template-library.md`: local-first repository structure and promotion workflow for template intake, canonical template versions, curated knowledge, and assets.
 - `docs/audits/REPO_CLEANUP_BASELINE_2026-03-11.md`: cleanup, archive, and production-readiness baseline.
 - Older docs in `docs/audits/` and `docs/architecture/` should be treated as historical context where they conflict with code.
 

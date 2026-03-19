@@ -1,5 +1,6 @@
 import React from 'react';
 import { Activity, FileText } from 'lucide-react';
+import templateRegistry from '../../data/templates/registry.json';
 
 type ReferenceRouteProps = {
   route: 'documentsTemplates' | 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive';
@@ -9,6 +10,48 @@ type ReferenceRouteProps = {
   archivedRecords: Array<any>;
   onRestoreArchivedRecord: (record: any) => void;
 };
+
+type TemplateRegistryEntry = {
+  template_id: string;
+  label: string;
+  category: 'documents' | 'comms';
+  current_version: string;
+  status: string;
+};
+
+type TemplateRegistry = {
+  documents: TemplateRegistryEntry[];
+  comms: TemplateRegistryEntry[];
+};
+
+const registry = templateRegistry as TemplateRegistry;
+
+function templateStatusBadgeClass(status: string): string {
+  switch (status) {
+    case 'canonical':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    case 'reviewed':
+      return 'border-blue-200 bg-blue-50 text-blue-700';
+    case 'scaffold':
+    default:
+      return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
+}
+
+const templateSections = [
+  {
+    key: 'documents',
+    label: 'Document Templates',
+    description: 'Legal, disclosure, and issuance surfaces that should promote from ad hoc intake into versioned canonical templates.',
+    entries: registry.documents,
+  },
+  {
+    key: 'comms',
+    label: 'Comms Templates',
+    description: 'Investor-facing communication templates that should share the same intake, review, and promotion flow.',
+    entries: registry.comms,
+  },
+] as const;
 
 const ReferenceRoute: React.FC<ReferenceRouteProps> = ({ route, documents, horseById, docWebHref, archivedRecords, onRestoreArchivedRecord }) => {
   const nzComplianceLinks = [
@@ -41,11 +84,38 @@ const ReferenceRoute: React.FC<ReferenceRouteProps> = ({ route, documents, horse
           <FileText size={16} className="text-blue-600" />
           <h3 className="text-base font-semibold text-slate-900">Templates</h3>
         </div>
-        <ul className="mt-4 space-y-2 text-sm text-slate-700">
-          {['PDS', 'Syndicate Agreement', 'VARA Whitepaper (Horse Lease Reward)', 'HLT Issuance Termsheet'].map((name) => (
-            <li key={name} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">{name}</li>
+        <p className="mt-2 text-sm text-slate-600">
+          This registry is now driven from the canonical template surface in <code>data/templates/registry.json</code>.
+          Raw uploads belong in <code>intake/ad_hoc/</code> until they are reviewed and promoted.
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Promotion flow: <span className="font-medium text-slate-700">ad_hoc</span> to <span className="font-medium text-slate-700">reviewed</span> to <span className="font-medium text-slate-700">canonical</span>.
+        </p>
+        <div className="mt-4 space-y-5">
+          {templateSections.map((section) => (
+            <section key={section.key}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{section.label}</p>
+                <p className="mt-1 text-sm text-slate-600">{section.description}</p>
+              </div>
+              <div className="mt-3 space-y-2">
+                {section.entries.map((entry) => (
+                  <div key={entry.template_id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{entry.label}</p>
+                        <p className="mt-1 text-xs text-slate-500">{entry.template_id} ? {entry.current_version}</p>
+                      </div>
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${templateStatusBadgeClass(entry.status)}`}>
+                        {entry.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
-        </ul>
+        </div>
       </article>
     );
   }

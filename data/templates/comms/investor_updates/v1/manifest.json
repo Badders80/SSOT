@@ -1,0 +1,10 @@
+{
+  "template_id": "investor_updates",
+  "label": "Investor Updates",
+  "category": "comms",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/comms/investor_updates",
+  "canonical_path": "data/templates/comms/investor_updates/v1",
+  "generated_output_path": "data/generated/investor_updates"
+}

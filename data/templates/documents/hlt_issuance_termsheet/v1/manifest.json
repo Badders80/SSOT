@@ -1,0 +1,10 @@
+{
+  "template_id": "hlt_issuance_termsheet",
+  "label": "HLT Issuance Term Sheet",
+  "category": "documents",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/documents/hlt_issuance_termsheet",
+  "canonical_path": "data/templates/documents/hlt_issuance_termsheet/v1",
+  "generated_output_path": "data/generated/hlt"
+}

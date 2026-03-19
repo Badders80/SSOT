@@ -1,0 +1,10 @@
+{
+  "template_id": "syndicate_agreement",
+  "label": "Syndicate Agreement",
+  "category": "documents",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/documents/syndicate_agreement",
+  "canonical_path": "data/templates/documents/syndicate_agreement/v1",
+  "generated_output_path": null
+}

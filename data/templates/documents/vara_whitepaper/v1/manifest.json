@@ -1,0 +1,10 @@
+{
+  "template_id": "vara_whitepaper",
+  "label": "VARA Whitepaper",
+  "category": "documents",
+  "version": "v1",
+  "status": "scaffold",
+  "intake_path": "intake/ad_hoc/documents/vara_whitepaper",
+  "canonical_path": "data/templates/documents/vara_whitepaper/v1",
+  "generated_output_path": null
+}
