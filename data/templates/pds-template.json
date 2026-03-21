@@ -1,0 +1,629 @@
+{
+  "id": "tpl_pds",
+  "name": "Product Disclosure Statement (PDS)",
+  "category": "Compliance",
+  "description": "Tokinvest Product Disclosure Statement for horse racing syndicates. Covers all 21 sections plus appendices required for regulatory compliance, including horse details, costs, revenue split, vet report, and all static legal disclosures.",
+  "tags": ["tokinvest", "pds", "compliance", "syndicate", "horse-racing"],
+  "version": "1.0",
+  "source": "wizard",
+  "sections": [
+    {
+      "id": "sec_cover",
+      "title": "Cover Page",
+      "description": "Section 1 — cover page of the PDS. Mostly static boilerplate with a few derived/input fields.",
+      "fields": [
+        {
+          "key": "date",
+          "label": "PDS Date",
+          "type": "date",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "Date this PDS is issued, e.g. 15/03/2026"
+        },
+        {
+          "key": "syndicateName",
+          "label": "Syndicate Name",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "horse.name + ' Syndicate'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "stakeDescription",
+          "label": "Stake Description",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leasePercent + '% lease interest split across ' + offering.numTokens + ' tokens at $' + offering.tokenPrice + ' each'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "contactInfo",
+          "label": "Contact Information",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.contact_info",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_key_info",
+      "title": "Key Information Summary",
+      "description": "Section 2 — summary table of key information for the investor. Combines static boilerplate, derived horse/syndicate data, and user inputs.",
+      "fields": [
+        {
+          "key": "whatIsThis",
+          "label": "What Is This Investment?",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'A {leasePercent}% lease interest in {horseName}, a {age}-year-old {sex} trained by {trainer} at {trainingBase}. The interest is divided into {numTokens} tokens at ${tokenPrice} each.'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "whoIsThisFor",
+          "label": "Who Is This Suitable For?",
+          "type": "textarea",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_who_is_this_for",
+          "required": true
+        },
+        {
+          "key": "howDoesItWork",
+          "label": "How Does It Work?",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Investors acquire tokens representing a share of a lease over {horseName}. Prize money earned by the horse during the lease is distributed proportionally to token holders after deducting trainer and running costs.'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "structure",
+          "label": "Structure",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.structure_type + ' syndicate lease — ' + offering.numTokens + ' tokens'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "returns",
+          "label": "Returns",
+          "type": "textarea",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_returns_description",
+          "required": true
+        },
+        {
+          "key": "fees",
+          "label": "Fees",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Monthly training fee of ${monthlyCost} per token. Total lease cost ${totalLeaseCost} over {leaseDurationMonths} months.'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "raceScheduleExpectation",
+          "label": "Race Schedule Expectation",
+          "type": "textarea",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "Describe the expected race schedule for this horse during the lease period, e.g. targeted races, frequency, and distances."
+        },
+        {
+          "key": "risks",
+          "label": "Key Risks",
+          "type": "textarea",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_key_risks",
+          "required": true
+        },
+        {
+          "key": "howToInvest",
+          "label": "How To Invest",
+          "type": "textarea",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_how_to_invest",
+          "required": true
+        },
+        {
+          "key": "manager",
+          "label": "Manager Details",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_manager_details",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_about_horse",
+      "title": "About the Horse",
+      "description": "Section 3 — horse identity and profile. Reusable fields pulled from the horse data record; narrative fields are user-authored.",
+      "fields": [
+        {
+          "key": "aboutHorseNarrative",
+          "label": "About the Horse (Narrative)",
+          "type": "textarea",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "1-2 paragraphs introducing this horse — breeding highlights, physical attributes, and training situation."
+        },
+        {
+          "key": "horseName",
+          "label": "Horse Name",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.name",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "foalingDate",
+          "label": "Foaling Date",
+          "type": "date",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.foalingDate",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "colour",
+          "label": "Colour",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.colour",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "sex",
+          "label": "Sex",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.sex",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "sire",
+          "label": "Sire",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "sire.name + ' (' + sire.countryCode + ')'",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "dam",
+          "label": "Dam",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "dam.name + ' (' + dam.countryCode + ')'",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "trainer",
+          "label": "Trainer",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "trainer.stable_name + ' (' + trainer.contact_name + ')'",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "trainingBase",
+          "label": "Training Base",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "trainer.location",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "leaseDuration",
+          "label": "Lease Duration",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leaseDurationMonths + ' months (' + offering.leaseStartDate + ' to ' + offering.leaseEndDate + ')'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "stake",
+          "label": "Stake",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leasePercent + '% of lease earnings'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "listing",
+          "label": "Token Listing Details",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.numTokens + ' tokens at $' + offering.tokenPrice + ' each (' + offering.percentPerToken + '% per token)'",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "record",
+          "label": "Racing Record",
+          "type": "text",
+          "classification": "REUSABLE",
+          "autoFillSource": "horse.racingRecord",
+          "reusableType": "cached",
+          "required": true
+        },
+        {
+          "key": "racingOutlookNarrative",
+          "label": "Racing Outlook Narrative",
+          "type": "textarea",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "Describe the horse's racing outlook for the lease period — targeted races, distances, and conditions."
+        }
+      ]
+    },
+    {
+      "id": "sec_costs",
+      "title": "Costs",
+      "description": "Section 4 — full cost breakdown. All fields are derived from the offering pricing data via formula.",
+      "fields": [
+        {
+          "key": "totalLeaseCost",
+          "label": "Total Lease Cost ($)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.monthlyCost * offering.leaseDurationMonths * offering.numTokens",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "monthlyCost",
+          "label": "Monthly Cost per Token ($)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.monthlyCost",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "numTokens",
+          "label": "Number of Tokens",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.numTokens",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "tokenPrice",
+          "label": "Token Price ($)",
+          "type": "currency",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.tokenPrice",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "percentPerToken",
+          "label": "Percentage Per Token (%)",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leasePercent / offering.numTokens",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "leaseStartDate",
+          "label": "Lease Start Date",
+          "type": "date",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leaseStartDate",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "leaseEndDate",
+          "label": "Lease End Date",
+          "type": "date",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leaseEndDate",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "leaseDurationMonths",
+          "label": "Lease Duration (months)",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "dateDiffMonths(offering.leaseStartDate, offering.leaseEndDate)",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "leasePercent",
+          "label": "Lease Percentage (%)",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leasePercent",
+          "derivedMethod": "formula",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_revenue",
+      "title": "Revenue Split",
+      "description": "Section 5 — how prize money is split between investors and the owner.",
+      "fields": [
+        {
+          "key": "investorSplit",
+          "label": "Investor Revenue Split (%)",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "offering.leasePercent",
+          "derivedMethod": "formula",
+          "required": true
+        },
+        {
+          "key": "ownerSplit",
+          "label": "Owner Revenue Split (%)",
+          "type": "number",
+          "classification": "DERIVED",
+          "autoFillSource": "100 - offering.leasePercent",
+          "derivedMethod": "formula",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_vet_report",
+      "title": "Veterinary Report",
+      "description": "Section 6 — vet report for the horse. Full text entered by the user or pasted from the vet's report.",
+      "fields": [
+        {
+          "key": "vetReportText",
+          "label": "Veterinary Report Text",
+          "type": "textarea",
+          "classification": "INPUT",
+          "required": true,
+          "placeholder": "Paste the full veterinary report text here, including examination date, findings, and sign-off."
+        }
+      ]
+    },
+    {
+      "id": "sec_static_sections",
+      "title": "Static Legal Sections",
+      "description": "Sections that are entirely static boilerplate and require no per-offering data entry: Section 1 (Introduction / About Tokinvest), Section 5 (How the Syndicate Works), Section 7 structure boilerplate, Section 8 (Risks), Section 9 (Fees and Charges), Section 11 (Complaints and Dispute Resolution), Section 18 (Privacy Policy), Section 21 (Glossary), Appendix A (Regulatory Disclosures).",
+      "fields": [
+        {
+          "key": "sec1_aboutTokinvest",
+          "label": "Section 1 — About Tokinvest",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec1_about_tokinvest",
+          "required": true
+        },
+        {
+          "key": "sec5_howSyndicateWorks",
+          "label": "Section 5 — How the Syndicate Works",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec5_how_syndicate_works",
+          "required": true
+        },
+        {
+          "key": "sec7_structureBoilerplate",
+          "label": "Section 7 — Structure Boilerplate",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec7_structure",
+          "required": true
+        },
+        {
+          "key": "sec8_risks",
+          "label": "Section 8 — Risks",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec8_risks",
+          "required": true
+        },
+        {
+          "key": "sec9_feesAndCharges",
+          "label": "Section 9 — Fees and Charges",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec9_fees_and_charges",
+          "required": true
+        },
+        {
+          "key": "sec11_complaints",
+          "label": "Section 11 — Complaints and Dispute Resolution",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec11_complaints",
+          "required": true
+        },
+        {
+          "key": "sec18_privacy",
+          "label": "Section 18 — Privacy Policy",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec18_privacy",
+          "required": true
+        },
+        {
+          "key": "sec21_glossary",
+          "label": "Section 21 — Glossary",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_sec21_glossary",
+          "required": true
+        },
+        {
+          "key": "appendixA_regulatory",
+          "label": "Appendix A — Regulatory Disclosures",
+          "type": "text",
+          "classification": "STATIC",
+          "autoFillSource": "boilerplate.pds_appendix_a_regulatory",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "sec_derived_inserts",
+      "title": "Derived Horse/Syndicate Name Inserts",
+      "description": "Interpolated fields used throughout Sections 4, 7, 12-17, 19, 20, and Appendix B wherever the horse name or syndicate name must be inserted into otherwise-static prose.",
+      "fields": [
+        {
+          "key": "horseNameInsert",
+          "label": "Horse Name (Insert)",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "horse.name",
+          "derivedMethod": "formula",
+          "required": true,
+          "defaultValue": "{HORSE_NAME}"
+        },
+        {
+          "key": "syndicateNameInsert",
+          "label": "Syndicate Name (Insert)",
+          "type": "text",
+          "classification": "DERIVED",
+          "autoFillSource": "horse.name + ' Syndicate'",
+          "derivedMethod": "formula",
+          "required": true,
+          "defaultValue": "{HORSE_NAME} Syndicate"
+        },
+        {
+          "key": "sec4_costsNarrative",
+          "label": "Section 4 — Costs Narrative (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'The total cost of participating in the {syndicateName} is outlined below...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Using the costs data for {horseName} syndicate (totalLeaseCost, monthlyCost, numTokens, tokenPrice, leaseDurationMonths), write a concise 2-3 sentence costs narrative suitable for a PDS compliance document.",
+          "outputHint": "Plain prose, 2-3 sentences, no markdown, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec7_syndicateStructureNarrative",
+          "label": "Section 7 — Syndicate Structure Narrative (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'The {syndicateName} is structured as a lease syndicate...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a concise PDS-compliant narrative for the syndicate structure section for the {horseName} Syndicate, incorporating the lease percentage ({leasePercent}%), token count ({numTokens}), and lease duration ({leaseDurationMonths} months).",
+          "outputHint": "Plain prose, 2-4 sentences, regulatory tone, no markdown.",
+          "required": true
+        },
+        {
+          "key": "sec12_investorObligations",
+          "label": "Section 12 — Investor Obligations (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'As a token holder in the {syndicateName}, investors agree to...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant investor obligations paragraph for the {horseName} Syndicate lease, covering monthly cost contributions and token holder responsibilities.",
+          "outputHint": "Plain prose, 3-5 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec13_managerObligations",
+          "label": "Section 13 — Manager Obligations (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Tokinvest, as manager of the {syndicateName}, is responsible for...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant manager obligations paragraph for the {horseName} Syndicate, describing Tokinvest's responsibilities to token holders.",
+          "outputHint": "Plain prose, 3-5 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec14_prizeMoney",
+          "label": "Section 14 — Prize Money Distribution (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Prize money earned by {horseName} during the lease period will be distributed...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant prize money distribution paragraph for the {horseName} Syndicate. Investor split is {investorSplit}% and owner split is {ownerSplit}%.",
+          "outputHint": "Plain prose, 2-4 sentences, regulatory tone, include percentages.",
+          "required": true
+        },
+        {
+          "key": "sec15_leaseTermination",
+          "label": "Section 15 — Lease Termination (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'The lease over {horseName} will terminate on {leaseEndDate} unless...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant lease termination paragraph for the {horseName} Syndicate with a lease end date of {leaseEndDate}.",
+          "outputHint": "Plain prose, 2-3 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec16_withdrawal",
+          "label": "Section 16 — Withdrawal Rights (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Investors in the {syndicateName} may withdraw under the following conditions...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant withdrawal rights section for the {horseName} Syndicate, describing any cooling-off period and conditions under which investors may exit.",
+          "outputHint": "Plain prose, 3-5 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec17_conflicts",
+          "label": "Section 17 — Conflicts of Interest (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'In relation to the {syndicateName}, the following conflicts of interest are disclosed...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant conflicts of interest disclosure for the {horseName} Syndicate, acknowledging Tokinvest's dual role as platform and manager.",
+          "outputHint": "Plain prose, 2-4 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "sec19_taxation",
+          "label": "Section 19 — Taxation (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Token holders in the {syndicateName} should seek independent tax advice...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant taxation section for the {horseName} Syndicate, noting that investors should seek independent tax advice regarding their participation.",
+          "outputHint": "Plain prose, 2-3 sentences, regulatory tone, standard disclaimer language.",
+          "required": true
+        },
+        {
+          "key": "sec20_additionalInfo",
+          "label": "Section 20 — Additional Information (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "template: 'Further information about the {syndicateName} can be obtained from...'",
+          "derivedMethod": "llm",
+          "llmPrompt": "Write a PDS-compliant additional information section for the {horseName} Syndicate, directing investors to Tokinvest's platform and contact details for further queries.",
+          "outputHint": "Plain prose, 2-3 sentences, regulatory tone.",
+          "required": true
+        },
+        {
+          "key": "appendixB_syndicateSchedule",
+          "label": "Appendix B — Syndicate Schedule (with horse name)",
+          "type": "textarea",
+          "classification": "DERIVED",
+          "autoFillSource": "assembled from horse name, syndicate name, lease dates, costs, and revenue split",
+          "derivedMethod": "formula",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "created_at": "2026-03-15T00:00:00.000Z",
+  "updated_at": "2026-03-15T00:00:00.000Z"
+}

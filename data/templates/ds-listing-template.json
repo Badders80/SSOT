@@ -1,0 +1,92 @@
+{
+  "id": "tpl_ds_listing",
+  "name": "DS Listing Document",
+  "category": "Listing",
+  "description": "Tokinvest DS Data Fields document for new horse listings. Produces the complete offering page content including horse profile, pedigree analysis, trainer bio, and meta keys.",
+  "tags": ["tokinvest", "horse-listing", "ds-data-fields"],
+  "version": "1.0",
+  "source": "wizard",
+  "example_count": 3,
+  "sections": [
+    {
+      "id": "sec_header",
+      "title": "Offering Header",
+      "fields": [
+        { "key": "offeringTitle", "label": "Offering Title", "type": "text", "classification": "DERIVED", "autoFillSource": "horse.name + ' (' + horse.countryCode + ')'", "required": true, "derivedMethod": "formula" },
+        { "key": "previewDetails", "label": "Preview Details", "type": "text", "classification": "DERIVED", "autoFillSource": "horse.name + ' (' + horse.countryCode + '), two-year old ' + horse.sex", "required": true, "derivedMethod": "formula" }
+      ]
+    },
+    {
+      "id": "sec_intro",
+      "title": "Introduction",
+      "fields": [
+        { "key": "staticIntro", "label": "Tokinvest Introduction", "type": "text", "classification": "STATIC", "autoFillSource": "boilerplate.intro_template", "required": true },
+        { "key": "horseIntro", "label": "Horse-specific Introduction", "type": "textarea", "classification": "INPUT", "required": true, "placeholder": "A unique paragraph introducing this horse, its breeding, and training situation." }
+      ]
+    },
+    {
+      "id": "sec_why_tokenise",
+      "title": "Why Tokenise a Racehorse?",
+      "fields": [
+        { "key": "whyTokeniseBody", "label": "Why Tokenise Body", "type": "text", "classification": "STATIC", "autoFillSource": "boilerplate.why_tokenise_body", "required": true },
+        { "key": "whyTokeniseBullets", "label": "Why Tokenise Bullets", "type": "array", "classification": "STATIC", "autoFillSource": "boilerplate.why_tokenise_bullets", "required": true }
+      ]
+    },
+    {
+      "id": "sec_about",
+      "title": "About {horseName}",
+      "fields": [
+        { "key": "sex", "label": "Sex", "type": "text", "classification": "INPUT", "autoFillSource": "horse.sex", "required": true },
+        { "key": "age", "label": "Age", "type": "text", "classification": "DERIVED", "autoFillSource": "calculated from horse.foalingDate", "required": true, "derivedMethod": "formula" },
+        { "key": "sire", "label": "Sire", "type": "text", "classification": "INPUT", "autoFillSource": "sire.name + ' (' + sire.countryCode + ')'", "required": true },
+        { "key": "dam", "label": "Dam", "type": "text", "classification": "INPUT", "autoFillSource": "dam.name + ' (' + dam.countryCode + ')'", "required": true },
+        { "key": "trainer", "label": "Trainer", "type": "text", "classification": "REUSABLE", "autoFillSource": "trainer.stable_name + ' (' + trainer.contact_name + ')'", "required": true, "reusableType": "cached" },
+        { "key": "location", "label": "Location", "type": "text", "classification": "REUSABLE", "autoFillSource": "offering.location", "required": true, "reusableType": "cached" },
+        { "key": "racingRecord", "label": "Racing Record", "type": "text", "classification": "INPUT", "required": true }
+      ]
+    },
+    {
+      "id": "sec_narrative",
+      "title": "{horseName}: Horse Narrative",
+      "fields": [
+        { "key": "narrativeHeadline", "label": "Narrative Headline", "type": "text", "classification": "INPUT", "required": true, "placeholder": "e.g. Presence, Balance, and Pedigree" },
+        { "key": "narrativeBody", "label": "Narrative Body", "type": "textarea", "classification": "INPUT", "required": true, "placeholder": "1-2 paragraphs describing the horse's physical attributes, pedigree highlights, and training status." },
+        { "key": "earningsSentence", "label": "Earnings Statement", "type": "text", "classification": "STATIC", "autoFillSource": "boilerplate.earnings_sentence", "required": true }
+      ]
+    },
+    {
+      "id": "sec_trainer",
+      "title": "Trainer Profile",
+      "fields": [
+        { "key": "trainerBio", "label": "Trainer Bio", "type": "textarea", "classification": "REUSABLE", "autoFillSource": "trainer.bio (from data/trainers/{slug}.json)", "required": true, "reusableType": "cached" }
+      ]
+    },
+    {
+      "id": "sec_pedigree",
+      "title": "Built on Pedigree",
+      "fields": [
+        { "key": "sireDescription", "label": "Sire Description", "type": "textarea", "classification": "REUSABLE", "autoFillSource": "sire.description (from data/sires/{slug}.json)", "required": true, "reusableType": "cached" },
+        { "key": "damDescription", "label": "Dam Description", "type": "textarea", "classification": "REUSABLE", "autoFillSource": "dam.description (from data/dams/{slug}.json)", "required": true, "reusableType": "cached" }
+      ]
+    },
+    {
+      "id": "sec_meta",
+      "title": "Meta Keys",
+      "fields": [
+        { "key": "promoted", "label": "Promoted", "type": "text", "classification": "STATIC", "autoFillSource": "boilerplate.promoted", "required": true },
+        { "key": "horseRaceHistoryUrl", "label": "Horse Race History URL", "type": "url", "classification": "INPUT", "autoFillSource": "horse.breedingUrl", "required": false },
+        { "key": "horsetrainer", "label": "Horse Trainer", "type": "text", "classification": "DERIVED", "autoFillSource": "trainer.contact_name", "required": true, "derivedMethod": "formula" },
+        { "key": "horsetype", "label": "Horse Type", "type": "text", "classification": "INPUT", "autoFillSource": "horse.sex", "required": true },
+        { "key": "horsepedigree", "label": "Horse Pedigree", "type": "textarea", "classification": "DERIVED", "autoFillSource": "assembled from sire + dam descriptions", "required": true, "derivedMethod": "formula" },
+        { "key": "propertylocation", "label": "Property Location", "type": "text", "classification": "REUSABLE", "autoFillSource": "offering.location", "required": true, "reusableType": "cached" },
+        { "key": "searchterms", "label": "Search Terms", "type": "text", "classification": "DERIVED", "autoFillSource": "auto-generated from horse name, sire, trainer, location", "required": true, "derivedMethod": "formula" },
+        { "key": "detailsummary", "label": "Detail Summary", "type": "textarea", "classification": "DERIVED", "autoFillSource": "assembled from location, trainer, duration, sire, dam, microchip", "required": true, "derivedMethod": "formula" },
+        { "key": "horsecolour", "label": "Horse Colour", "type": "text", "classification": "INPUT", "autoFillSource": "horse.colour + ' ' + horse.sex", "required": true },
+        { "key": "horseDOB", "label": "Horse DOB", "type": "date", "classification": "INPUT", "autoFillSource": "horse.foalingDate (formatted DD/MM/YYYY)", "required": true },
+        { "key": "assettype", "label": "Asset Type", "type": "text", "classification": "STATIC", "autoFillSource": "boilerplate.assettype", "required": true }
+      ]
+    }
+  ],
+  "created_at": "2026-03-14T22:00:00.000Z",
+  "updated_at": "2026-03-14T22:00:00.000Z"
+}

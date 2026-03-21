@@ -31,6 +31,11 @@ import { loadSsotSeed } from './src/lib/ssot/seed-loader';
 const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
 const LeaseRoute = lazy(() => import('./src/routes/LeaseRoute'));
 const ReferenceRoute = lazy(() => import('./src/routes/ReferenceRoute'));
+const TemplateRoute = lazy(() => import('./src/routes/TemplateRoute'));
+const DSListingWizard = lazy(() => import('./src/routes/DSListingWizard'));
+const HLTIssuanceWizard = lazy(() => import('./src/routes/HLTIssuanceWizard'));
+const SyndicateAgreementWizard = lazy(() => import('./src/routes/SyndicateAgreementWizard'));
+const PDSWizard = lazy(() => import('./src/routes/PDSWizard'));
 
 type RouteKey =
   | 'dashboard'
@@ -1994,6 +1999,10 @@ const App: React.FC = () => {
   const [showLeaseHorseFilter, setShowLeaseHorseFilter] = useState(false);
   const [showLeaseStatusFilter, setShowLeaseStatusFilter] = useState(false);
   const [showHltWizard, setShowHltWizard] = useState(false);
+  const [showDSListingWizard, setShowDSListingWizard] = useState(false);
+  const [showHLTIssuanceWizard, setShowHLTIssuanceWizard] = useState(false);
+  const [showSyndicateAgreementWizard, setShowSyndicateAgreementWizard] = useState(false);
+  const [showPDSWizard, setShowPDSWizard] = useState(false);
   const [hltStep, setHltStep] = useState(1);
   const [hltError, setHltError] = useState<string | null>(null);
   const [hltNotice, setHltNotice] = useState<string | null>(null);
@@ -3088,6 +3097,15 @@ const App: React.FC = () => {
     setHltStep(1);
     setHltError(null);
   };
+
+  const openDSListingWizard = () => setShowDSListingWizard(true);
+  const closeDSListingWizard = () => setShowDSListingWizard(false);
+  const openHLTIssuanceWizard = () => setShowHLTIssuanceWizard(true);
+  const closeHLTIssuanceWizard = () => setShowHLTIssuanceWizard(false);
+  const openSyndicateAgreementWizard = () => setShowSyndicateAgreementWizard(true);
+  const closeSyndicateAgreementWizard = () => setShowSyndicateAgreementWizard(false);
+  const openPDSWizard = () => setShowPDSWizard(true);
+  const closePDSWizard = () => setShowPDSWizard(false);
 
   const stepOneReady = Boolean(hltDraft.horseId && hltDraft.trainerId && hltDraft.ownerId);
   const validateStepTwo = (): string | null => {
@@ -4618,10 +4636,20 @@ const App: React.FC = () => {
                 />
               </Suspense>
             ) : null}
-            {['documentsTemplates', 'documentsGenerated', 'complianceNewZealand', 'complianceDubai', 'complianceSsot', 'complianceArchive'].includes(route) ? (
+            {route === 'documentsTemplates' ? (
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <TemplateRoute
+                  onOpenDSListingWizard={openDSListingWizard}
+                  onOpenHLTIssuanceWizard={openHLTIssuanceWizard}
+                  onOpenSyndicateAgreementWizard={openSyndicateAgreementWizard}
+                  onOpenPDSWizard={openPDSWizard}
+                />
+              </Suspense>
+            ) : null}
+            {['documentsGenerated', 'complianceNewZealand', 'complianceDubai', 'complianceSsot', 'complianceArchive'].includes(route) ? (
               <Suspense fallback={<RouteLoadingFallback />}>
                 <ReferenceRoute
-                  route={route as 'documentsTemplates' | 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive'}
+                  route={route as 'documentsGenerated' | 'complianceNewZealand' | 'complianceDubai' | 'complianceSsot' | 'complianceArchive'}
                   documents={seed?.documents ?? []}
                   horseById={horseById}
                   docWebHref={docWebHref}
@@ -4935,6 +4963,62 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : null}
+
+            {showDSListingWizard ? (
+              <Suspense fallback={null}>
+                <DSListingWizard
+                  horses={allHorses}
+                  trainers={allTrainers}
+                  onClose={closeDSListingWizard}
+                  onGenerate={(data) => {
+                    console.log('DS Listing data:', data);
+                    closeDSListingWizard();
+                  }}
+                />
+              </Suspense>
+            ) : null}
+
+            {showHLTIssuanceWizard ? (
+              <Suspense fallback={null}>
+                <HLTIssuanceWizard
+                  horses={allHorses}
+                  trainers={allTrainers}
+                  onClose={closeHLTIssuanceWizard}
+                  onGenerate={(data) => {
+                    console.log('HLT Issuance data:', data);
+                    closeHLTIssuanceWizard();
+                  }}
+                />
+              </Suspense>
+            ) : null}
+
+            {showSyndicateAgreementWizard ? (
+              <Suspense fallback={null}>
+                <SyndicateAgreementWizard
+                  horses={allHorses}
+                  trainers={allTrainers}
+                  onClose={closeSyndicateAgreementWizard}
+                  onGenerate={(data) => {
+                    console.log('Syndicate Agreement data:', data);
+                    closeSyndicateAgreementWizard();
+                  }}
+                />
+              </Suspense>
+            ) : null}
+
+            {showPDSWizard ? (
+              <Suspense fallback={null}>
+                <PDSWizard
+                  horses={allHorses}
+                  trainers={allTrainers}
+                  onClose={closePDSWizard}
+                  onGenerate={(data) => {
+                    console.log('PDS data:', data);
+                    closePDSWizard();
+                  }}
+                />
+              </Suspense>
             ) : null}
 
             {showHorseReviewModal && horseDraft ? (
