@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeCheck, BriefcaseBusiness, Landmark, Link2 } from 'lucide-react';
+import { BadgeCheck, BriefcaseBusiness, Coins, Landmark, Link2 } from 'lucide-react';
 
 type HorseLike = {
   horse_id: string;
@@ -14,6 +14,22 @@ type DashboardRouteProps = {
   allTrainers: Array<unknown>;
   allOwners: Array<unknown>;
   leaseCount: number;
+  investorPayoutEvents: Array<{
+    horseId: string;
+    horseName: string;
+    raceDate: string;
+    raceDateIso: string;
+    raceName: string;
+    raceUrl: string;
+    result: string;
+    resultDetail: string;
+    sourceStakeNzd: number | null;
+    leaseId: string;
+    investorPayoutNzd: number;
+    payoutPerOnePercentNzd: number;
+    payoutPerTokenNzd: number | null;
+    status: string;
+  }>;
   horseImageSrc: (horse: HorseLike) => string;
 };
 
@@ -41,13 +57,21 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, helper, href, ico
   </a>
 );
 
-const DashboardRoute: React.FC<DashboardRouteProps> = ({ allHorses, allTrainers, allOwners, leaseCount, horseImageSrc }) => (
+const DashboardRoute: React.FC<DashboardRouteProps> = ({
+  allHorses,
+  allTrainers,
+  allOwners,
+  leaseCount,
+  investorPayoutEvents,
+  horseImageSrc,
+}) => (
   <>
-    <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
       <MetricCard label="Active Horses" value={String(allHorses.length)} helper="Open horse registry" href="#/horses" icon={<Landmark size={16} />} />
       <MetricCard label="Trainers/Stables" value={String(allTrainers.length)} helper="Open trainer register" href="#/trainers" icon={<BadgeCheck size={16} />} />
       <MetricCard label="Owners" value={String(allOwners.length)} helper="Open owner register" href="#/owners" icon={<BriefcaseBusiness size={16} />} />
       <MetricCard label="Active Leases" value={String(leaseCount)} helper="Open lease register" href="#/leases" icon={<Link2 size={16} />} />
+      <MetricCard label="Investor Returns" value={String(investorPayoutEvents.length)} helper="Open investor returns register" href="#/investor-returns" icon={<Coins size={16} />} />
     </section>
 
     <section className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -29,6 +29,7 @@ import {
 import { loadSsotSeed } from './src/lib/ssot/seed-loader';
 
 const DashboardRoute = lazy(() => import('./src/routes/DashboardRoute'));
+const InvestorReturnsRoute = lazy(() => import('./src/routes/InvestorReturnsRoute'));
 const LeaseRoute = lazy(() => import('./src/routes/LeaseRoute'));
 const ReferenceRoute = lazy(() => import('./src/routes/ReferenceRoute'));
 
@@ -43,6 +44,7 @@ type RouteKey =
   | 'governingBodies'
   | 'governingBody'
   | 'leases'
+  | 'investorReturns'
   | 'documentsTemplates'
   | 'documentsGenerated'
   | 'complianceNewZealand'
@@ -287,6 +289,7 @@ const parseRoute = (hash: string): RouteState => {
   if (parts[0] === 'owners') return { route: 'owners', entityId: null };
   if (parts[0] === 'governing-bodies') return { route: 'governingBodies', entityId: null };
   if (parts[0] === 'leases') return { route: 'leases', entityId: null };
+  if (parts[0] === 'investor-returns') return { route: 'investorReturns', entityId: null };
   if (parts[0] === 'documents' && parts[1] === 'templates') return { route: 'documentsTemplates', entityId: null };
   if (parts[0] === 'documents' && parts[1] === 'generated') return { route: 'documentsGenerated', entityId: null };
   if (parts[0] === 'compliance' && parts[1] === 'rules-of-racing') return { route: 'complianceNewZealand', entityId: null };
@@ -324,6 +327,12 @@ const formatNzd = (value: string): string => {
   return `NZD ${nzdFormatter.format(amount)}`;
 };
 
+const formatNzdAmount = (value: number, maximumFractionDigits = 2): string =>
+  `NZD ${value.toLocaleString('en-NZ', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits,
+  })}`;
+
 const leaseStatusBadgeClass = (status: string): string => {
   const normalized = status.toLowerCase();
   if (normalized === 'active') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
@@ -338,6 +347,67 @@ const isoToday = (): string => new Date().toISOString().slice(0, 10);
 const parseNumber = (value: string): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isIsoDateWithinRange = (dateIso: string, startIso: string, endIso: string): boolean =>
+  Boolean(dateIso && startIso && endIso && startIso <= dateIso && dateIso <= endIso);
+
+const resolveActiveLeaseForRaceDate = (leases: LeaseRecord[], raceDateIso: string): LeaseRecord | null =>
+  leases.find((lease) => lease.lease_status.toLowerCase() === 'active' && isIsoDateWithinRange(raceDateIso, lease.start_date, lease.end_date)) ?? null;
+
+const calculateRaceInvestorPayout = (
+  race: RecentRaceRecord,
+  leases: LeaseRecord[],
+): {
+  lease: LeaseRecord;
+  leasedStakeNzd: number;
+  investorPayoutNzd: number;
+  payoutPerOnePercentNzd: number;
+  payoutPerTokenNzd: number | null;
+} | null => {
+  if (!race.dateIso || race.stakeNzd == null) return null;
+  const lease = resolveActiveLeaseForRaceDate(leases, race.dateIso);
+  if (!lease) return null;
+  const leasedPercent = parseNumber(lease.percent_leased) / 100;
+  const investorSplit = parseNumber(lease.investor_share_percent) / 100;
+  const leasedStakeNzd = race.stakeNzd * leasedPercent;
+  const investorPayoutNzd = leasedStakeNzd * investorSplit;
+  const payoutPerOnePercentNzd = race.stakeNzd * 0.01 * investorSplit;
+  const tokenCount = parseNumber(lease.token_count);
+  return {
+    lease,
+    leasedStakeNzd,
+    investorPayoutNzd,
+    payoutPerOnePercentNzd,
+    payoutPerTokenNzd: tokenCount > 0 ? investorPayoutNzd / tokenCount : null,
+  };
+};
+
+const buildRacePayoutEvent = (
+  horse: HorseRecord,
+  race: RecentRaceRecord,
+  leases: LeaseRecord[],
+): RacePayoutEventRecord | null => {
+  const activeLease = race.dateIso ? resolveActiveLeaseForRaceDate(leases, race.dateIso) : null;
+  if (!activeLease) return null;
+  const payout = calculateRaceInvestorPayout(race, leases);
+  const status = payout ? 'Live lease payout' : 'Stake source pending';
+  return {
+    horseId: horse.horse_id,
+    horseName: horse.horse_name,
+    raceDate: race.date,
+    raceDateIso: race.dateIso,
+    raceName: race.raceName,
+    raceUrl: race.raceUrl,
+    result: race.placing,
+    resultDetail: race.placingDetail ?? '',
+    sourceStakeNzd: race.stakeNzd ?? null,
+    leaseId: payout?.lease.lease_id ?? activeLease.lease_id,
+    investorPayoutNzd: payout?.investorPayoutNzd ?? 0,
+    payoutPerOnePercentNzd: payout?.payoutPerOnePercentNzd ?? 0,
+    payoutPerTokenNzd: payout?.payoutPerTokenNzd ?? null,
+    status,
+  };
 };
 
 const extractFoalingYear = (foalingDate: string): string => {
@@ -821,10 +891,31 @@ type ScrapedHorseDetails = {
 type RecentRaceRecord = {
   placing: string;
   date: string;
+  dateIso: string;
   raceName: string;
   raceUrl: string;
   distance: string;
   trackCondition: string;
+  placingDetail?: string;
+  stakeDisplay?: string;
+  stakeNzd?: number | null;
+};
+
+type RacePayoutEventRecord = {
+  horseId: string;
+  horseName: string;
+  raceDate: string;
+  raceDateIso: string;
+  raceName: string;
+  raceUrl: string;
+  result: string;
+  resultDetail: string;
+  sourceStakeNzd: number | null;
+  leaseId: string;
+  investorPayoutNzd: number;
+  payoutPerOnePercentNzd: number;
+  payoutPerTokenNzd: number | null;
+  status: string;
 };
 
 const parseBreedingLink = (rawLink: string): ParsedBreedingLink | null => {
@@ -919,6 +1010,63 @@ const decodeHtmlText = (value: string): string => value
 const stripHtml = (value: string): string =>
   decodeHtmlText(value).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
+const parseHtmlDocument = (html: string): Document =>
+  new DOMParser().parseFromString(html, 'text/html');
+
+const shortMonthToNumber: Record<string, string> = {
+  jan: '01',
+  feb: '02',
+  mar: '03',
+  apr: '04',
+  may: '05',
+  jun: '06',
+  jul: '07',
+  aug: '08',
+  sep: '09',
+  oct: '10',
+  nov: '11',
+  dec: '12',
+};
+
+const parseRaceDateLabelToIso = (value: string): string => {
+  const match = value.trim().match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2,4})$/);
+  if (!match) return '';
+  const dd = match[1].padStart(2, '0');
+  const month = shortMonthToNumber[match[2].toLowerCase()] ?? '';
+  if (!month) return '';
+  const rawYear = match[3];
+  const yyyy = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+  return `${yyyy}-${month}-${dd}`;
+};
+
+const parseCurrencyAmount = (value: string): number | null => {
+  const cleaned = value.replace(/[^0-9.-]/g, '');
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeHorseNameForMatch = (value: string): string =>
+  value
+    .toUpperCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+
+const raceHorseNameMatches = (left: string, right: string): boolean => {
+  const a = normalizeHorseNameForMatch(left);
+  const b = normalizeHorseNameForMatch(right);
+  return Boolean(a && b && (a === b || a.startsWith(`${b} `) || b.startsWith(`${a} `)));
+};
+
+const extractRaceHorseName = (row: Element): string => {
+  const horseCell = row.querySelector('.column.horse, .horse');
+  if (!horseCell) return '';
+  const clone = horseCell.cloneNode(true) as Element;
+  clone.querySelectorAll('.jockey, div').forEach((node) => node.remove());
+  return normalizeWhitespace(clone.textContent ?? '');
+};
+
 const extractText = (html: string, pattern: RegExp): string | null => {
   const match = html.match(pattern);
   if (!match?.[1]) return null;
@@ -926,15 +1074,46 @@ const extractText = (html: string, pattern: RegExp): string | null => {
 };
 
 const parseRecentRacesFromPerformanceHtml = (html: string): RecentRaceRecord[] => {
-  const matches = Array.from(html.matchAll(/race-summary-cell">\s*<div[^>]*placing[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*col4[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*><a href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/div>\s*<div[^>]*col2[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*col1[^>]*>([\s\S]*?)<\/div>/gi));
-  return matches.slice(0, 3).map((match) => ({
-    placing: stripHtml(match[1]),
-    date: stripHtml(match[2]),
-    raceUrl: match[3].startsWith('http') ? match[3] : `https://loveracing.nz${match[3]}`,
-    raceName: stripHtml(match[4]),
-    distance: stripHtml(match[5]),
-    trackCondition: stripHtml(match[6]),
-  })).filter((row) => row.raceName);
+  const doc = parseHtmlDocument(html);
+  const rows = Array.from(doc.querySelectorAll('.race-summary-cell'));
+  return rows
+    .map((row) => {
+      const link = row.querySelector('a[href]');
+      const href = link?.getAttribute('href')?.trim() ?? '';
+      const raceName = normalizeWhitespace(link?.textContent ?? '');
+      const date = normalizeWhitespace((row.querySelector('.col4')?.textContent ?? ''));
+      if (!href || !raceName) return null;
+      return {
+        placing: normalizeWhitespace((row.querySelector('.placing')?.textContent ?? '')),
+        date,
+        dateIso: parseRaceDateLabelToIso(date),
+        raceUrl: href.startsWith('http') ? href : `https://loveracing.nz${href}`,
+        raceName,
+        distance: normalizeWhitespace((row.querySelector('.col2')?.textContent ?? '')),
+        trackCondition: normalizeWhitespace((row.querySelector('.col1')?.textContent ?? '')),
+      };
+    })
+    .filter((row): row is RecentRaceRecord => Boolean(row?.raceName));
+};
+
+const parseRaceDetailForHorse = (
+  html: string,
+  horseName: string,
+): Pick<RecentRaceRecord, 'placingDetail' | 'stakeDisplay' | 'stakeNzd'> => {
+  const doc = parseHtmlDocument(html);
+  const rows = Array.from(doc.querySelectorAll('li.nztr-row'));
+  for (const row of rows) {
+    const rowHorseName = extractRaceHorseName(row);
+    if (!raceHorseNameMatches(rowHorseName, horseName)) continue;
+    const placingDetail = normalizeWhitespace((row.querySelector('.column.placing, .placing')?.textContent ?? ''));
+    const stakeDisplay = normalizeWhitespace((row.querySelector('.column.odds, .odds')?.textContent ?? ''));
+    return {
+      placingDetail: placingDetail || undefined,
+      stakeDisplay: stakeDisplay || undefined,
+      stakeNzd: stakeDisplay ? parseCurrencyAmount(stakeDisplay) : null,
+    };
+  }
+  return {};
 };
 
 const scrapeHorseDetailsFromHtml = (html: string, fallback: ParsedBreedingLink): ScrapedHorseDetails | null => {
@@ -1293,6 +1472,22 @@ const fetchUrlViaProxy = async (targetUrl: string): Promise<string | null> => {
   } catch {
     return null;
   }
+};
+
+const fetchRaceHistoryForHorse = async (
+  horse: Pick<HorseRecord, 'horse_name' | 'performance_profile_url'>,
+): Promise<RecentRaceRecord[]> => {
+  if (!horse.performance_profile_url) return [];
+  const html = await fetchUrlViaProxy(horse.performance_profile_url);
+  const baseRows = html ? parseRecentRacesFromPerformanceHtml(html) : [];
+  return Promise.all(baseRows.map(async (race) => {
+    const detailHtml = await fetchUrlViaProxy(race.raceUrl);
+    if (!detailHtml) return race;
+    return {
+      ...race,
+      ...parseRaceDetailForHorse(detailHtml, horse.horse_name),
+    };
+  }));
 };
 
 const isSocialUrl = (value: string): boolean => /(?:x\.com|twitter\.com|linkedin\.com|facebook\.com|instagram\.com)/i.test(value);
@@ -1966,6 +2161,7 @@ const App: React.FC = () => {
   const [archiveNotice, setArchiveNotice] = useState<string | null>(null);
   const [recentRacesByHorseId, setRecentRacesByHorseId] = useState<Record<string, RecentRaceRecord[]>>({});
   const [recentRaceLoadingHorseId, setRecentRaceLoadingHorseId] = useState<string | null>(null);
+  const [investorPayoutLoading, setInvestorPayoutLoading] = useState(false);
   const [editingHorseId, setEditingHorseId] = useState<string | null>(null);
   const [editingTrainerId, setEditingTrainerId] = useState<string | null>(null);
   const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
@@ -1993,6 +2189,10 @@ const App: React.FC = () => {
   const [leaseStatusFilter, setLeaseStatusFilter] = useState<'all' | 'active' | 'proposed' | 'draft' | 'completed'>('all');
   const [showLeaseHorseFilter, setShowLeaseHorseFilter] = useState(false);
   const [showLeaseStatusFilter, setShowLeaseStatusFilter] = useState(false);
+  const [investorReturnTab, setInvestorReturnTab] = useState<'all' | 'returned' | 'pending'>('all');
+  const [investorReturnHorseFilter, setInvestorReturnHorseFilter] = useState<string>('all');
+  const [showInvestorReturnHorseFilter, setShowInvestorReturnHorseFilter] = useState(false);
+  const [showInvestorReturnStatusFilter, setShowInvestorReturnStatusFilter] = useState(false);
   const [showHltWizard, setShowHltWizard] = useState(false);
   const [hltStep, setHltStep] = useState(1);
   const [hltError, setHltError] = useState<string | null>(null);
@@ -2285,7 +2485,8 @@ const App: React.FC = () => {
     return map;
   }, [allGoverningBodies]);
 
-  const selectedHorse = routeState.route === 'horse' && routeState.entityId ? horseById.get(routeState.entityId) ?? null : null;
+  const route = routeState.route;
+  const selectedHorse = route === 'horse' && routeState.entityId ? horseById.get(routeState.entityId) ?? null : null;
   const selectedTrainer = routeState.route === 'trainer' && routeState.entityId ? trainerById.get(routeState.entityId) ?? null : null;
   const selectedOwner = routeState.route === 'owner' && routeState.entityId ? ownerById.get(routeState.entityId) ?? null : null;
   const selectedGoverningBody = routeState.route === 'governingBody' && routeState.entityId ? governingBodyByCode.get(routeState.entityId) ?? null : null;
@@ -2308,8 +2509,38 @@ const App: React.FC = () => {
   const selectedHorseIntake = selectedHorse
     ? (seed?.intakeQueue ?? []).filter((row) => row.parsed_horse_name === selectedHorse.horse_name)
     : [];
-  const selectedHorseRecentRaces = selectedHorse ? (recentRacesByHorseId[selectedHorse.horse_id] ?? []) : [];
+  const trackedHorseIds = useMemo(
+    () => new Set((seed?.leases ?? []).map((lease) => lease.horse_id)),
+    [seed],
+  );
+  const trackedPayoutHorses = useMemo(
+    () => allHorses.filter((horse) => horse.performance_profile_url && trackedHorseIds.has(horse.horse_id)),
+    [allHorses, trackedHorseIds],
+  );
+  const selectedHorseRaceHistory = selectedHorse ? (recentRacesByHorseId[selectedHorse.horse_id] ?? []) : [];
+  const selectedHorseRecentRaces = selectedHorseRaceHistory.slice(0, 3);
   const selectedHorseRecentRacesLoading = selectedHorse ? recentRaceLoadingHorseId === selectedHorse.horse_id : false;
+  const investorPayoutEvents = useMemo(() => {
+    const leases = seed?.leases ?? [];
+    const rows = allHorses.filter((horse) => trackedHorseIds.has(horse.horse_id)).flatMap((horse) => {
+      const horseLeases = leases.filter((lease) => lease.horse_id === horse.horse_id);
+      const races = recentRacesByHorseId[horse.horse_id] ?? [];
+      return races
+        .map((race) => buildRacePayoutEvent(horse, race, horseLeases))
+        .filter((event): event is RacePayoutEventRecord => Boolean(event));
+    });
+    return rows.sort((left, right) => (right.raceDateIso || right.raceDate).localeCompare(left.raceDateIso || left.raceDate));
+  }, [allHorses, recentRacesByHorseId, seed, trackedHorseIds]);
+  const accumulatedInvestorReturnNzd = useMemo(
+    () => investorPayoutEvents.reduce((sum, event) => sum + event.investorPayoutNzd, 0),
+    [investorPayoutEvents],
+  );
+  const selectedHorsePayoutEvents = selectedHorse
+    ? investorPayoutEvents.filter((event) => event.horseId === selectedHorse.horse_id)
+    : [];
+  const selectedHorseAccumulatedInvestorPayoutNzd = selectedHorsePayoutEvents.reduce((sum, event) => sum + event.investorPayoutNzd, 0);
+  const selectedHorseZeroPayoutCount = selectedHorsePayoutEvents.filter((event) => event.investorPayoutNzd === 0).length;
+  const selectedHorseEligiblePayoutCount = selectedHorsePayoutEvents.filter((event) => event.investorPayoutNzd > 0).length;
   const selectedHorseSync = selectedHorse ? resolveHorseSyncRecord(selectedHorse) : null;
   const selectedHorseImagePath = selectedHorse
     ? (horseImageOverrides[selectedHorse.horse_id] ?? horseImageFor(selectedHorse))
@@ -2327,16 +2558,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const horseId = selectedHorse?.horse_id ?? '';
-    const performanceUrl = selectedHorse?.performance_profile_url ?? '';
-    if (!horseId || !performanceUrl) return;
+    if (!horseId || !selectedHorse?.performance_profile_url) return;
     if (Object.prototype.hasOwnProperty.call(recentRacesByHorseId, horseId)) return;
 
     let cancelled = false;
     setRecentRaceLoadingHorseId(horseId);
 
     const loadRecentRaces = async () => {
-      const html = await fetchUrlViaProxy(performanceUrl);
-      const nextRows = html ? parseRecentRacesFromPerformanceHtml(html) : [];
+      const nextRows = await fetchRaceHistoryForHorse(selectedHorse);
       if (cancelled) return;
       setRecentRacesByHorseId((prev) => ({ ...prev, [horseId]: nextRows }));
       setRecentRaceLoadingHorseId((prev) => (prev === horseId ? null : prev));
@@ -2347,7 +2576,38 @@ const App: React.FC = () => {
       cancelled = true;
       setRecentRaceLoadingHorseId((prev) => (prev === horseId ? null : prev));
     };
-  }, [selectedHorse?.horse_id, selectedHorse?.performance_profile_url, recentRacesByHorseId]);
+  }, [selectedHorse, recentRacesByHorseId]);
+
+  useEffect(() => {
+    if (route !== 'dashboard' && route !== 'investorReturns') return;
+    const targets = trackedPayoutHorses.filter((horse) => !Object.prototype.hasOwnProperty.call(recentRacesByHorseId, horse.horse_id));
+    if (!targets.length) {
+      setInvestorPayoutLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setInvestorPayoutLoading(true);
+
+    const loadTrackedPayouts = async () => {
+      for (const horse of targets) {
+        const nextRows = await fetchRaceHistoryForHorse(horse);
+        if (cancelled) return;
+        setRecentRacesByHorseId((prev) => (
+          Object.prototype.hasOwnProperty.call(prev, horse.horse_id)
+            ? prev
+            : { ...prev, [horse.horse_id]: nextRows }
+        ));
+      }
+      if (!cancelled) setInvestorPayoutLoading(false);
+    };
+
+    void loadTrackedPayouts();
+    return () => {
+      cancelled = true;
+      setInvestorPayoutLoading(false);
+    };
+  }, [route, trackedPayoutHorses, recentRacesByHorseId]);
 
   const selectedTrainerHorses = selectedTrainer
     ? allHorses.filter((horse) => horse.trainer_id === selectedTrainer.trainer_id)
@@ -2395,6 +2655,13 @@ const App: React.FC = () => {
       .filter((horse): horse is HorseRecord => Boolean(horse))
       .map((horse) => ({ id: horse.horse_id, name: horse.horse_name }));
   }, [seed, horseById]);
+  const investorReturnHorseOptions = useMemo(() => {
+    const ids = Array.from(new Set(investorPayoutEvents.map((event) => event.horseId)));
+    return ids
+      .map((id) => horseById.get(id))
+      .filter((horse): horse is HorseRecord => Boolean(horse))
+      .map((horse) => ({ id: horse.horse_id, name: horse.horse_name }));
+  }, [horseById, investorPayoutEvents]);
 
   const filteredLeases = useMemo(() => {
     return (seed?.leases ?? []).filter((lease) => {
@@ -2404,6 +2671,17 @@ const App: React.FC = () => {
       return horseMatch && statusMatch;
     });
   }, [seed, leaseHorseFilter, leaseStatusFilter]);
+  const filteredInvestorReturns = useMemo(() => {
+    return investorPayoutEvents.filter((event) => {
+      const horseMatch = investorReturnHorseFilter === 'all' || event.horseId === investorReturnHorseFilter;
+      const statusMatch = investorReturnTab === 'all'
+        ? true
+        : investorReturnTab === 'returned'
+          ? event.status === 'Live lease payout'
+          : event.status === 'Stake source pending';
+      return horseMatch && statusMatch;
+    });
+  }, [investorPayoutEvents, investorReturnHorseFilter, investorReturnTab]);
   const hltHorse = hltDraft.horseId ? horseById.get(hltDraft.horseId) ?? null : null;
   const hltTrainer = hltDraft.trainerId ? trainerById.get(hltDraft.trainerId) ?? null : null;
   const hltOwner = hltDraft.ownerId ? ownerById.get(hltDraft.ownerId) ?? null : null;
@@ -3415,52 +3693,15 @@ const App: React.FC = () => {
         return;
       }
       if (downloadFormat === 'docx') {
-        const bodyBlocks = payload.body.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
-        const doc = new DocxDocument({
-          sections: [{
-            children: [
-              new Paragraph({ text: payload.headline, heading: HeadingLevel.HEADING_1 }),
-              new Paragraph({ children: [new TextRun({ text: `${payload.horseName} (${payload.horseId}) · ${payload.asOfDate}`, bold: true })] }),
-              new Paragraph({ text: payload.summary || 'No summary provided.' }),
-              ...bodyBlocks.map((block) => new Paragraph({ text: block })),
-            ],
-          }],
-        });
-        const blob = await Packer.toBlob(doc);
+        const blob = await buildInvestorUpdateDocxBlob(payload);
         triggerBlobDownload(blob, `${baseFileName}.docx`);
         return;
       }
-      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-      const margin = 48;
-      const width = pdf.internal.pageSize.getWidth() - (margin * 2);
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let y = 58;
-      const writeWrapped = (text: string, size: number) => {
-        pdf.setFontSize(size);
-        const lines = pdf.splitTextToSize(text, width) as string[];
-        for (const line of lines) {
-          if (y > pageHeight - 52) {
-            pdf.addPage();
-            y = 58;
-          }
-          pdf.text(line, margin, y);
-          y += size + 6;
-        }
-      };
-      writeWrapped(payload.headline, 18);
-      y += 4;
-      writeWrapped(`${payload.horseName} (${payload.horseId}) · ${payload.asOfDate}`, 11);
-      y += 8;
-      writeWrapped(payload.summary || 'No summary provided.', 12);
-      y += 8;
-      writeWrapped(payload.body, 12);
-      pdf.save(`${baseFileName}.pdf`);
+      await downloadInvestorUpdatePdf(payload, `${baseFileName}.pdf`);
     } catch (err) {
       setInvestorUpdateError(err instanceof Error ? err.message : 'Download failed.');
     }
   };
-
-  const route = routeState.route;
   const routeForNav = route === 'horse'
     ? 'horses'
     : route === 'trainer'
@@ -3505,9 +3746,11 @@ const App: React.FC = () => {
                                 ? 'Archived Documents'
                                 : route === 'leases'
                                   ? 'Lease Registry'
-                                  : route === 'intake'
-                                    ? 'Intake Queue'
-                                    : 'Document Register';
+                                  : route === 'investorReturns'
+                                    ? 'Investor Returns'
+                                    : route === 'intake'
+                                      ? 'Intake Queue'
+                                      : 'Document Register';
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="mission-grid">
@@ -3614,6 +3857,7 @@ const App: React.FC = () => {
                   allTrainers={allTrainers}
                   allOwners={allOwners}
                   leaseCount={seed?.leases.length ?? 0}
+                  investorPayoutEvents={investorPayoutEvents}
                   horseImageSrc={horseImageSrc}
                 />
               </Suspense>
@@ -3867,24 +4111,60 @@ const App: React.FC = () => {
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Last 3 Races</h3>
                       <div className="mt-3 min-h-[170px] space-y-3 text-sm text-slate-700">
                         {selectedHorseRecentRaces.map((race) => (
-                          <div key={`${race.date}-${race.raceName}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold text-slate-900">{race.placing}</p>
-                                <p className="text-xs text-slate-500">{race.date}</p>
-                              </div>
-                              <div className="text-right text-xs text-slate-500">
-                                <p>{race.distance}</p>
-                                <p>{race.trackCondition}</p>
-                              </div>
-                            </div>
-                            <a href={race.raceUrl} target="_blank" rel="noreferrer" className="mt-2 block text-sm text-blue-700 hover:underline">{race.raceName}</a>
+                          <div key={`${race.date}-${race.raceUrl}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            {(() => {
+                              const payout = calculateRaceInvestorPayout(race, selectedHorseLeases);
+                              const hasLeaseButOutOfRange = Boolean(race.stakeNzd != null && race.dateIso && selectedHorseLeases.length && !payout);
+                              return (
+                                <>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="font-semibold text-slate-900">{race.placing}</p>
+                                      <p className="text-xs text-slate-500">{race.date}</p>
+                                    </div>
+                                    <div className="text-right text-xs text-slate-500">
+                                      <p>{race.distance}</p>
+                                      <p>{race.trackCondition}</p>
+                                    </div>
+                                  </div>
+                                  <a href={race.raceUrl} target="_blank" rel="noreferrer" className="mt-2 block text-sm text-blue-700 hover:underline">{race.raceName}</a>
+                                  <div className="mt-3 grid grid-cols-1 gap-1 text-xs text-slate-600 sm:grid-cols-2">
+                                    <p><span className="font-semibold text-slate-900">Source stake:</span> {race.stakeNzd != null ? formatNzdAmount(race.stakeNzd) : (selectedHorseRecentRacesLoading ? 'Loading source...' : 'Source unavailable')}</p>
+                                    <p><span className="font-semibold text-slate-900">Result row:</span> {race.placingDetail ? `${race.placingDetail}${race.stakeDisplay ? ` for ${race.stakeDisplay}` : ''}` : (selectedHorseRecentRacesLoading ? 'Loading source...' : 'Source unavailable')}</p>
+                                    {payout ? (
+                                      <>
+                                        <p><span className="font-semibold text-slate-900">Active lease:</span> {payout.lease.lease_id}</p>
+                                        <p><span className="font-semibold text-slate-900">Investor payout:</span> {formatNzdAmount(payout.investorPayoutNzd)}</p>
+                                        <p><span className="font-semibold text-slate-900">Per 1%:</span> {formatNzdAmount(payout.payoutPerOnePercentNzd)}</p>
+                                        <p><span className="font-semibold text-slate-900">Per token:</span> {payout.payoutPerTokenNzd != null ? formatNzdAmount(payout.payoutPerTokenNzd, 3) : 'N/A'}</p>
+                                      </>
+                                    ) : null}
+                                    {hasLeaseButOutOfRange ? (
+                                      <p className="sm:col-span-2">
+                                        <span className="font-semibold text-slate-900">Payout status:</span> No active lease covered this race date.
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </>
+                              );
+                            })()}
                           </div>
                         ))}
                         {selectedHorseRecentRacesLoading ? <div className="h-0" aria-hidden="true" /> : null}
                       </div>
                     </article>
                   </section>
+
+                  <article className="surface-card rounded-xl p-5">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Investor Returns Report</h3>
+                    <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">{selectedHorsePayoutEvents.length} race events</span>
+                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">{selectedHorseEligiblePayoutCount} lease-eligible</span>
+                      <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 font-semibold text-blue-700">{formatNzdAmount(selectedHorseAccumulatedInvestorPayoutNzd)} accumulated investor returns</span>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">{selectedHorseZeroPayoutCount} zero-payout events</span>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">Only races that landed inside an active lease window are included here. Zero-return rows remain when the active lease applied but the source stake resolved to zero or is still pending.</p>
+                  </article>
 
                   <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <article className="surface-card rounded-xl p-5">
@@ -4615,6 +4895,26 @@ const App: React.FC = () => {
                   formatNzd={formatNzd}
                   leaseStatusBadgeClass={leaseStatusBadgeClass}
                   openHltWizard={openHltWizard}
+                />
+              </Suspense>
+            ) : null}
+            {route === 'investorReturns' ? (
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <InvestorReturnsRoute
+                  filteredInvestorReturns={filteredInvestorReturns}
+                  horseById={horseById}
+                  investorReturnTab={investorReturnTab}
+                  investorReturnHorseFilter={investorReturnHorseFilter}
+                  showInvestorReturnHorseFilter={showInvestorReturnHorseFilter}
+                  showInvestorReturnStatusFilter={showInvestorReturnStatusFilter}
+                  investorReturnHorseOptions={investorReturnHorseOptions}
+                  setInvestorReturnTab={setInvestorReturnTab}
+                  setInvestorReturnHorseFilter={setInvestorReturnHorseFilter}
+                  setShowInvestorReturnHorseFilter={setShowInvestorReturnHorseFilter}
+                  setShowInvestorReturnStatusFilter={setShowInvestorReturnStatusFilter}
+                  formatNzdAmount={formatNzdAmount}
+                  investorPayoutLoading={investorPayoutLoading}
+                  accumulatedInvestorReturnNzd={accumulatedInvestorReturnNzd}
                 />
               </Suspense>
             ) : null}
